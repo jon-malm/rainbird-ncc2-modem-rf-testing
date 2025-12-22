@@ -1,0 +1,2 @@
+# CMW500 LAN Query Application
+# No external dependencies required - uses Python standard library only
