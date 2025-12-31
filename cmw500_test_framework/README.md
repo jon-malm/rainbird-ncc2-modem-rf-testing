@@ -5,6 +5,9 @@ A comprehensive Python test framework for network simulation and RF testing on t
 ## Features
 
 - **LTE Signaling Control**: Configure and control LTE cells, manage UE connections, perform RF measurements
+- **WCDMA/UMTS Signaling**: 3G cell configuration, voice calls, data connections, BER/BLER measurements
+- **GSM/GPRS/EDGE Signaling**: 2G/2.5G/2.75G cell control, voice, packet data, frequency hopping
+- **HSPA Support**: HSDPA/HSUPA high-speed data, DC-HSDPA, MIMO configuration
 - **Network Simulation**: Fading channel simulation, path loss modeling, mobility scenarios
 - **General Purpose RF**: Signal generation, power measurements, spectrum analysis
 - **Configuration Management**: YAML config files, command-line interface, environment variables
@@ -79,6 +82,74 @@ with CMW500Client("192.168.1.100") as client:
 
     # Turn off cell
     client.lte.cell_off()
+```
+
+### WCDMA/UMTS Cell Configuration
+
+```python
+from cmw500_test_framework import CMW500Client
+
+with CMW500Client("192.168.1.100") as client:
+    # Configure WCDMA cell
+    client.wcdma.configure_cell(
+        band=1,
+        uarfcn_dl=10700,
+        scrambling_code=0,
+    )
+
+    # Set downlink power
+    client.wcdma.set_dl_power(cpich_power_dbm=-60)
+
+    # Turn on cell and wait for attach
+    client.wcdma.cell_on()
+    client.wcdma.wait_for_attach(timeout=60)
+
+    # Configure and start HSPA
+    client.hspa.configure_hsdpa(category=10, modulation="Q16")
+    client.hspa.configure_hsupa(category=6)
+    client.hspa.start_hsdpa()
+    client.hspa.start_hsupa()
+
+    # Measure throughput
+    result = client.hspa.measure_throughput()
+    print(f"HSDPA: {result.hsdpa_throughput_kbps} kbps")
+    print(f"HSUPA: {result.hsupa_throughput_kbps} kbps")
+
+    client.wcdma.cell_off()
+```
+
+### GSM/GPRS Cell Configuration
+
+```python
+from cmw500_test_framework import CMW500Client
+
+with CMW500Client("192.168.1.100") as client:
+    # Configure GSM cell
+    client.gsm.configure_cell(
+        band="GSM900",
+        arfcn=50,
+        bsic=1,
+    )
+
+    # Set downlink power
+    client.gsm.set_dl_power(bcch_level_dbm=-60)
+
+    # Turn on cell
+    client.gsm.cell_on()
+    client.gsm.wait_for_attach(timeout=60)
+
+    # Setup voice call
+    client.gsm.setup_voice_call(codec="FR")
+
+    # Or configure GPRS/EDGE for data
+    client.gsm.configure_gprs(multislot_class=12, coding_scheme="CS4")
+    client.gsm.attach_gprs(apn="test")
+
+    # Measure TX power
+    tx_power = client.gsm.measure_tx_power()
+    print(f"Burst Power: {tx_power.burst_power_dbm} dBm")
+
+    client.gsm.cell_off()
 ```
 
 ### Network Simulation with Fading
@@ -184,6 +255,9 @@ cmw500-cli config-gen --host 192.168.1.100 -o my_config.yaml
 | Module | Description |
 |--------|-------------|
 | `applications.lte` | LTE signaling and measurements |
+| `applications.wcdma` | WCDMA/UMTS signaling and measurements |
+| `applications.gsm` | GSM/GPRS/EDGE signaling and measurements |
+| `applications.hspa` | HSDPA/HSUPA high-speed packet access |
 | `applications.gprf` | General purpose RF generator/analyzer |
 | `applications.network_simulation` | Network simulation and fading |
 
@@ -214,6 +288,12 @@ print(response.value)
 | `CONFigure:LTE:SIGN:...` | LTE signaling configuration |
 | `SOURce:LTE:SIGN:...` | LTE signal source control |
 | `MEASure:LTE:SIGN:...` | LTE measurements |
+| `CONFigure:WCDMa:SIGN:...` | WCDMA/HSPA signaling configuration |
+| `SOURce:WCDMa:SIGN:...` | WCDMA/HSPA signal source control |
+| `MEASure:WCDMa:SIGN:...` | WCDMA/HSPA measurements |
+| `CONFigure:GSM:SIGN:...` | GSM/GPRS/EDGE signaling configuration |
+| `SOURce:GSM:SIGN:...` | GSM/GPRS/EDGE signal source control |
+| `MEASure:GSM:SIGN:...` | GSM/GPRS/EDGE measurements |
 | `CONFigure:GPRF:...` | General purpose RF config |
 | `SOURce:GPRF:...` | RF generator control |
 | `CONFigure:FADing:...` | Fading channel config |

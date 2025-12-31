@@ -116,6 +116,9 @@ class CMW500Client:
         # Sub-modules (lazy initialization)
         self._lte = None
         self._gprf = None
+        self._wcdma = None
+        self._gsm = None
+        self._hspa = None
         self._system = None
 
     @property
@@ -336,6 +339,42 @@ class CMW500Client:
             from ..applications.gprf import GeneralPurposeRF
             self._gprf = GeneralPurposeRF(self)
         return self._gprf
+
+    # =========================================================================
+    # WCDMA Sub-module Access
+    # =========================================================================
+
+    @property
+    def wcdma(self) -> "WCDMASignaling":
+        """Access WCDMA/UMTS signaling sub-module."""
+        if self._wcdma is None:
+            from ..applications.wcdma import WCDMASignaling
+            self._wcdma = WCDMASignaling(self)
+        return self._wcdma
+
+    # =========================================================================
+    # GSM/GPRS Sub-module Access
+    # =========================================================================
+
+    @property
+    def gsm(self) -> "GSMSignaling":
+        """Access GSM/GPRS/EDGE signaling sub-module."""
+        if self._gsm is None:
+            from ..applications.gsm import GSMSignaling
+            self._gsm = GSMSignaling(self)
+        return self._gsm
+
+    # =========================================================================
+    # HSPA Sub-module Access
+    # =========================================================================
+
+    @property
+    def hspa(self) -> "HSPASignaling":
+        """Access HSPA (HSDPA/HSUPA) sub-module."""
+        if self._hspa is None:
+            from ..applications.hspa import HSPASignaling
+            self._hspa = HSPASignaling(self)
+        return self._hspa
 
     # =========================================================================
     # Utility Methods
