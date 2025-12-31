@@ -1,0 +1,33 @@
+# CMW500 Test Framework - RF Measurement Configuration
+#
+# Configuration for general purpose RF measurements
+# without signaling (non-signaling mode).
+
+instrument:
+  host: "192.168.1.100"
+  port: 5025
+  timeout: 10.0
+  auto_connect: true
+
+rf:
+  # Measurement center frequency
+  frequency_mhz: 2400.0    # Example: 2.4 GHz band
+
+  # Expected DUT power (for auto-ranging)
+  power_dbm: -20.0
+
+  # External attenuation (cables, fixtures)
+  external_attenuation_db: 3.5
+
+  # RF port selection
+  rf_port: "RF1COM"
+
+measurement:
+  repetitions: 10          # Number of measurements
+  averaging_count: 100     # Samples per measurement
+  timeout_seconds: 10.0
+  result_format: "dBm"
+
+# Fading disabled for RF measurements
+fading:
+  enabled: false

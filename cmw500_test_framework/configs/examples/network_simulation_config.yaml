@@ -1,0 +1,65 @@
+# CMW500 Test Framework - Network Simulation Configuration
+#
+# This configuration demonstrates fading channel simulation
+# for realistic network testing conditions.
+
+instrument:
+  host: "192.168.1.100"
+  port: 5025
+  timeout: 30.0            # Longer timeout for complex scenarios
+  auto_connect: true
+
+rf:
+  frequency_mhz: 1950.0
+  power_dbm: -30.0
+  external_attenuation_db: 0.0
+  rf_port: "RF1COM"
+
+lte:
+  band: 1
+  bandwidth_mhz: 10.0
+  duplex_mode: "FDD"
+  dl_earfcn: 300
+  cell_id: 1
+  # Lower power for fading scenarios
+  rs_epre_dbm: -85.0
+  pbch_power_dbm: -85.0
+  mimo_config: "2x2"       # 2x2 MIMO for diversity
+  transmission_mode: 2     # TM2 = Transmit diversity
+
+# 5G NR settings (for CMW500 + CMX500 setups)
+nr:
+  band: "n78"              # 5G NR Band n78 (3.5 GHz)
+  bandwidth_mhz: 100.0     # 100 MHz channel
+  subcarrier_spacing_khz: 30
+  duplex_mode: "TDD"
+  ssb_frequency_mhz: 3600.0
+  cell_id: 1
+
+measurement:
+  repetitions: 5           # Multiple repetitions for statistics
+  averaging_count: 20      # Higher averaging for fading
+  timeout_seconds: 60.0    # Longer timeout
+  result_format: "dBm"
+
+# Fading channel configuration
+fading:
+  enabled: true
+  # Standard 3GPP profiles:
+  # - EPA5    : Pedestrian 5Hz (3 km/h)
+  # - EVA5    : Vehicular 5Hz
+  # - EVA70   : Vehicular 70Hz (40 km/h)
+  # - ETU70   : Urban 70Hz
+  # - ETU300  : Urban 300Hz (180 km/h)
+  # - HST     : High-speed train
+  # - STATIC  : No fading
+  profile: "EVA70"
+
+  # MIMO correlation:
+  # - LOW     : Low correlation (good for diversity)
+  # - MEDIUM  : Medium correlation
+  # - HIGH    : High correlation (worst case)
+  correlation: "LOW"
+
+  # Override Doppler frequency (Hz), or leave null to use profile default
+  doppler_hz: null

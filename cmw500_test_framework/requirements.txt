@@ -1,0 +1,14 @@
+# CMW500 Test Framework Requirements
+#
+# Core dependencies (optional):
+# - pyyaml: Required for YAML config file support
+
+# Optional: YAML configuration file support
+pyyaml>=5.0
+
+# Optional: Development/testing dependencies
+# pytest>=7.0
+# pytest-cov>=4.0
+# mypy>=1.0
+# black>=23.0
+# flake8>=6.0

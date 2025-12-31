@@ -1,0 +1,40 @@
+# CMW500 Test Framework - Basic LTE Configuration
+#
+# This example configuration sets up a basic LTE cell for testing.
+# Copy this file to cmw500_config.yaml and modify as needed.
+
+instrument:
+  host: "192.168.1.100"    # CMW500 IP address
+  port: 5025               # SCPI-RAW port (default)
+  timeout: 10.0            # Connection timeout (seconds)
+  auto_connect: true       # Connect automatically
+
+rf:
+  frequency_mhz: 1950.0    # Carrier frequency
+  power_dbm: -60.0         # Expected DUT power
+  external_attenuation_db: 0.0  # Cable/fixture loss
+  rf_port: "RF1COM"        # RF connector to use
+
+lte:
+  band: 1                  # LTE Band 1 (2100 MHz)
+  bandwidth_mhz: 10.0      # 10 MHz channel bandwidth
+  duplex_mode: "FDD"       # FDD or TDD
+  dl_earfcn: 300           # Downlink EARFCN
+  cell_id: 1               # Physical Cell ID (0-503)
+  # Power settings
+  rs_epre_dbm: -85.0       # Reference Signal EPRE
+  pbch_power_dbm: -85.0    # PBCH power
+  # MIMO settings
+  mimo_config: "1x1"       # Antenna configuration
+  transmission_mode: 1     # TM1 = single antenna
+
+measurement:
+  repetitions: 1           # Number of measurement cycles
+  averaging_count: 10      # Averaging for each measurement
+  timeout_seconds: 30.0    # Measurement timeout
+  result_format: "dBm"     # Result units
+
+fading:
+  enabled: false           # Disable fading for basic test
+  profile: "STATIC"        # No fading
+  correlation: "LOW"       # N/A when static
