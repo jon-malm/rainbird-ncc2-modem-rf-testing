@@ -2,7 +2,7 @@
 EC21 Modem Unified Test Runner
 
 Coordinates running all technology tests (LTE, GPRS, HSPA) for the Quectel EC21 modem
-under controlled distance and congestion scenarios.
+under controlled distance and congestion scenarios, including carrier failover testing.
 
 Usage:
     # Run all tests with defaults
@@ -13,6 +13,12 @@ Usage:
 
     # Run specific scenarios
     python -m cmw500_test_framework.tests.ec21_modem.test_runner --distance medium,far --congestion none,moderate
+
+    # Run carrier failover tests
+    python -m cmw500_test_framework.tests.ec21_modem.test_runner --mode failover
+
+    # Run failover between specific carriers
+    python -m cmw500_test_framework.tests.ec21_modem.test_runner --mode failover --carriers att,tmobile
 
     # Use config file
     python -m cmw500_test_framework.tests.ec21_modem.test_runner --config ec21_config.yaml
@@ -42,6 +48,14 @@ from .test_config import (
 from .lte_tests import EC21LTETestSuite
 from .gprs_tests import EC21GPRSTestSuite
 from .hspa_tests import EC21HSPATestSuite
+from .carrier_config import (
+    CARRIER_CONFIGS,
+    FAILOVER_SCENARIOS,
+    FailoverTestResult,
+    get_carrier_config,
+    get_all_carriers,
+)
+from .failover_tests import EC21FailoverTestSuite
 
 # Import CMW500 client
 from ...core.client import CMW500Client
@@ -57,23 +71,27 @@ class EC21TestRunner:
     distance and congestion scenarios.
     """
 
-    def __init__(self, config: EC21TestConfig = None):
+    def __init__(self, config: EC21TestConfig = None, ec21_variant: str = "A"):
         """
         Initialize test runner.
 
         Args:
             config: Test configuration (uses defaults if not provided)
+            ec21_variant: EC21 variant (A, V, AUT) - affects carrier band support
         """
         self.config = config or EC21TestConfig()
         self.client: Optional[CMW500Client] = None
+        self.ec21_variant = ec21_variant
 
         # Test suites (lazy initialization)
         self._lte_suite: Optional[EC21LTETestSuite] = None
         self._gprs_suite: Optional[EC21GPRSTestSuite] = None
         self._hspa_suite: Optional[EC21HSPATestSuite] = None
+        self._failover_suite: Optional[EC21FailoverTestSuite] = None
 
         # Results storage
         self.results: List[TestResult] = []
+        self.failover_results: List[FailoverTestResult] = []
         self.suite_result: Optional[TestSuiteResult] = None
 
         # Setup logging
@@ -155,6 +173,15 @@ class EC21TestRunner:
         if self._hspa_suite is None:
             self._hspa_suite = EC21HSPATestSuite(self.client, self.config)
         return self._hspa_suite
+
+    @property
+    def failover_suite(self) -> EC21FailoverTestSuite:
+        """Get failover test suite instance."""
+        if self._failover_suite is None:
+            self._failover_suite = EC21FailoverTestSuite(
+                self.client, self.config, self.ec21_variant
+            )
+        return self._failover_suite
 
     def _get_test_matrix(self) -> List[Tuple[str, str, str]]:
         """
@@ -387,6 +414,179 @@ class EC21TestRunner:
             self.generate_report()
 
         return self.suite_result
+
+    def run_failover_tests(
+        self,
+        carriers: List[str] = None,
+        scenarios: List[str] = None,
+    ) -> List[FailoverTestResult]:
+        """
+        Run carrier failover tests.
+
+        Args:
+            carriers: List of carriers to test (default: all - att, tmobile, verizon)
+            scenarios: Specific scenario names to run (default: all)
+
+        Returns:
+            List of FailoverTestResult objects
+        """
+        logger.info("=" * 60)
+        logger.info("EC21 CARRIER FAILOVER TEST SUITE")
+        logger.info("=" * 60)
+        logger.info(f"EC21 Variant: {self.ec21_variant}")
+
+        if scenarios:
+            # Run specific scenarios
+            results = []
+            for scenario_name in scenarios:
+                if scenario_name in FAILOVER_SCENARIOS:
+                    scenario = FAILOVER_SCENARIOS[scenario_name]
+                    result = self.failover_suite.run_failover_test(scenario)
+                    if result:
+                        results.append(result)
+                        self.failover_results.append(result)
+                else:
+                    logger.warning(f"Unknown scenario: {scenario_name}")
+            return results
+
+        if carriers:
+            # Run failover between specified carriers
+            results = []
+            carrier_list = [c.lower() for c in carriers]
+
+            # Generate carrier pairs
+            for i, primary in enumerate(carrier_list):
+                for secondary in carrier_list[i+1:]:
+                    logger.info(f"Testing failover: {primary} -> {secondary}")
+                    result = self.failover_suite.run_carrier_pair_test(primary, secondary)
+                    if result:
+                        results.append(result)
+                        self.failover_results.append(result)
+
+                    # Also test reverse direction
+                    logger.info(f"Testing failover: {secondary} -> {primary}")
+                    result = self.failover_suite.run_carrier_pair_test(secondary, primary)
+                    if result:
+                        results.append(result)
+                        self.failover_results.append(result)
+
+            return results
+
+        # Run all failover tests
+        return self.failover_suite.run_all_failover_tests()
+
+    def run_triple_failover(self) -> Optional[FailoverTestResult]:
+        """
+        Run triple failover test (AT&T -> T-Mobile -> Verizon).
+
+        Returns:
+            FailoverTestResult or None
+        """
+        return self.failover_suite.run_triple_failover_test()
+
+    def generate_failover_report(self, output_path: str = None) -> str:
+        """
+        Generate failover test report.
+
+        Args:
+            output_path: Output file path (auto-generated if not specified)
+
+        Returns:
+            Path to generated report
+        """
+        if not self.failover_results:
+            logger.warning("No failover test results to report")
+            return ""
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        json_path = output_path or os.path.join(
+            self.config.output_dir,
+            f"ec21_failover_report_{timestamp}.json"
+        )
+
+        # Get summary from failover suite
+        summary = self.failover_suite.get_results_summary()
+
+        report_data = {
+            "summary": {
+                "total_tests": summary["total"],
+                "passed": summary["passed"],
+                "failed": summary["failed"],
+                "pass_rate_percent": summary.get("pass_rate_percent", 0),
+            },
+            "ec21_variant": self.ec21_variant,
+            "by_carrier_pair": summary.get("by_carrier_pair", {}),
+            "results": [asdict(r) for r in self.failover_results],
+        }
+
+        with open(json_path, 'w') as f:
+            json.dump(report_data, f, indent=2)
+
+        logger.info(f"Failover report saved to: {json_path}")
+
+        # Generate text summary
+        txt_path = json_path.replace('.json', '.txt')
+        self._generate_failover_text_report(txt_path)
+
+        return json_path
+
+    def _generate_failover_text_report(self, path: str) -> None:
+        """Generate text format failover report."""
+        with open(path, 'w') as f:
+            f.write("=" * 70 + "\n")
+            f.write("QUECTEL EC21 CARRIER FAILOVER TEST REPORT\n")
+            f.write("=" * 70 + "\n\n")
+
+            f.write(f"EC21 Variant: {self.ec21_variant}\n")
+            f.write(f"Total Tests: {len(self.failover_results)}\n")
+
+            passed = sum(1 for r in self.failover_results if r.passed)
+            f.write(f"Passed: {passed}\n")
+            f.write(f"Failed: {len(self.failover_results) - passed}\n")
+            f.write(f"Pass Rate: {(passed/len(self.failover_results)*100) if self.failover_results else 0:.1f}%\n\n")
+
+            # Results by carrier pair
+            f.write("RESULTS BY CARRIER PAIR\n")
+            f.write("-" * 40 + "\n")
+
+            carrier_pairs = {}
+            for r in self.failover_results:
+                pair = f"{r.primary_carrier} -> {r.final_carrier or 'N/A'}"
+                if pair not in carrier_pairs:
+                    carrier_pairs[pair] = {"results": [], "times": []}
+                carrier_pairs[pair]["results"].append(r)
+                if r.failover_successful:
+                    carrier_pairs[pair]["times"].append(r.failover_time_s)
+
+            for pair, data in carrier_pairs.items():
+                passed = sum(1 for r in data["results"] if r.passed)
+                avg_time = sum(data["times"]) / len(data["times"]) if data["times"] else 0
+                f.write(f"\n{pair}:\n")
+                f.write(f"  Tests: {len(data['results'])} (Pass: {passed})\n")
+                f.write(f"  Avg Failover Time: {avg_time:.2f}s\n")
+
+            # Detailed results
+            f.write("\n\n" + "=" * 70 + "\n")
+            f.write("DETAILED RESULTS\n")
+            f.write("=" * 70 + "\n")
+
+            for r in self.failover_results:
+                status = "PASS" if r.passed else "FAIL"
+                f.write(f"\n[{status}] {r.scenario_name}\n")
+                f.write(f"  Timestamp: {r.timestamp}\n")
+                f.write(f"  Primary: {r.primary_carrier} ({r.primary_technology} Band {r.primary_band})\n")
+                f.write(f"  Primary Signal: {r.primary_rsrp_dbm:.1f} dBm\n")
+                f.write(f"  Failover Triggered: {r.failover_triggered}\n")
+                f.write(f"  Failover Successful: {r.failover_successful}\n")
+                f.write(f"  Failover Time: {r.failover_time_s:.2f}s\n")
+                if r.failover_successful:
+                    f.write(f"  Final: {r.final_carrier} ({r.final_technology} Band {r.final_band})\n")
+                    f.write(f"  Final Signal: {r.final_rsrp_dbm:.1f} dBm\n")
+                if r.failure_reason:
+                    f.write(f"  Failure Reason: {r.failure_reason}\n")
+
+        logger.info(f"Failover text report saved to: {path}")
 
     def generate_report(self, output_path: str = None) -> str:
         """
@@ -640,6 +840,18 @@ Examples:
   # Run distance sweep (all distances, no congestion)
   %(prog)s --host 192.168.1.100 --mode distance_sweep --technology LTE
 
+  # Run carrier failover tests (all carriers)
+  %(prog)s --host 192.168.1.100 --mode failover
+
+  # Run failover between specific carriers
+  %(prog)s --host 192.168.1.100 --mode failover --carriers att,tmobile
+
+  # Run triple failover test (AT&T -> T-Mobile -> Verizon)
+  %(prog)s --host 192.168.1.100 --mode triple_failover
+
+  # Run with Verizon-optimized EC21-V variant
+  %(prog)s --host 192.168.1.100 --mode failover --ec21-variant V
+
   # Use config file
   %(prog)s --config test_config.yaml
         """
@@ -687,9 +899,28 @@ Examples:
     parser.add_argument(
         "--mode", "-m",
         type=str,
-        choices=["full", "distance_sweep", "congestion_sweep", "single"],
+        choices=["full", "distance_sweep", "congestion_sweep", "single", "failover", "triple_failover"],
         default="full",
-        help="Test mode (default: full)"
+        help="Test mode (default: full). Use 'failover' for carrier failover tests."
+    )
+
+    # Failover-specific options
+    parser.add_argument(
+        "--carriers",
+        type=str,
+        help="Carriers for failover testing (comma-separated: att,tmobile,verizon)"
+    )
+    parser.add_argument(
+        "--failover-scenarios",
+        type=str,
+        help="Specific failover scenarios to run (comma-separated)"
+    )
+    parser.add_argument(
+        "--ec21-variant",
+        type=str,
+        default="A",
+        choices=["A", "V", "AUT"],
+        help="EC21 variant for carrier band compatibility (default: A)"
     )
 
     # Output
@@ -760,25 +991,41 @@ def main():
         if args.congestion:
             config.congestion_scenarios = [c.strip() for c in args.congestion.split(",")]
 
-        runner = EC21TestRunner(config)
+        runner = EC21TestRunner(config, ec21_variant=args.ec21_variant)
 
     # Dry run - just show configuration
     if args.dry_run:
         print("\nDRY RUN - Test Configuration:")
         print("-" * 40)
         print(f"CMW500 Host: {runner.config.cmw500_host}")
-        print(f"Technologies: {runner.config.technologies}")
-        print(f"Distance scenarios: {runner.config.distance_scenarios}")
-        print(f"Congestion scenarios: {runner.config.congestion_scenarios}")
         print(f"Test mode: {args.mode}")
+        print(f"EC21 Variant: {runner.ec21_variant}")
 
-        matrix = runner._get_test_matrix()
-        print(f"\nTotal tests: {len(matrix)}")
-        print("\nTest matrix:")
-        for tech, dist, cong in matrix[:10]:
-            print(f"  - {tech} / {dist} / {cong}")
-        if len(matrix) > 10:
-            print(f"  ... and {len(matrix) - 10} more")
+        if args.mode in ("failover", "triple_failover"):
+            print("\nCarrier Failover Mode")
+            if args.carriers:
+                carriers = [c.strip() for c in args.carriers.split(",")]
+                print(f"Carriers: {carriers}")
+            else:
+                print("Carriers: AT&T, T-Mobile, Verizon (all)")
+
+            if args.failover_scenarios:
+                scenarios = [s.strip() for s in args.failover_scenarios.split(",")]
+                print(f"Scenarios: {scenarios}")
+            else:
+                print(f"Scenarios: {list(FAILOVER_SCENARIOS.keys())}")
+        else:
+            print(f"Technologies: {runner.config.technologies}")
+            print(f"Distance scenarios: {runner.config.distance_scenarios}")
+            print(f"Congestion scenarios: {runner.config.congestion_scenarios}")
+
+            matrix = runner._get_test_matrix()
+            print(f"\nTotal tests: {len(matrix)}")
+            print("\nTest matrix:")
+            for tech, dist, cong in matrix[:10]:
+                print(f"  - {tech} / {dist} / {cong}")
+            if len(matrix) > 10:
+                print(f"  ... and {len(matrix) - 10} more")
         return 0
 
     # Connect to CMW500
@@ -835,6 +1082,38 @@ def main():
                     print(f"  DL Throughput: {result.dl_throughput_kbps:.1f} kbps")
                     print(f"  UL Throughput: {result.ul_throughput_kbps:.1f} kbps")
                     print(f"  Signal: {result.signal_strength_dbm:.1f} dBm")
+
+        elif args.mode == "failover":
+            # Parse carriers and scenarios
+            carriers = None
+            if args.carriers:
+                carriers = [c.strip() for c in args.carriers.split(",")]
+
+            scenarios = None
+            if args.failover_scenarios:
+                scenarios = [s.strip() for s in args.failover_scenarios.split(",")]
+
+            # Run failover tests
+            runner.run_failover_tests(carriers=carriers, scenarios=scenarios)
+
+            # Generate report
+            if runner.config.generate_report:
+                runner.generate_failover_report()
+
+        elif args.mode == "triple_failover":
+            # Run triple failover test (AT&T -> T-Mobile -> Verizon)
+            result = runner.run_triple_failover()
+            if result:
+                status = "PASS" if result.passed else "FAIL"
+                print(f"\nTriple Failover Result: {status}")
+                print(f"  Primary: {result.primary_carrier}")
+                print(f"  Final: {result.final_carrier}")
+                print(f"  Total Failover Time: {result.failover_time_s:.2f}s")
+                if result.failure_reason:
+                    print(f"  Failure Reason: {result.failure_reason}")
+
+            if runner.config.generate_report:
+                runner.generate_failover_report()
 
         return 0
 
