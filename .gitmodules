@@ -1,0 +1,8 @@
+[submodule "equipment-cmw500"]
+	path = equipment-cmw500
+	url = git@gitlab.rainbird.com:repo/firmware/projects/ncc2/submodules/equipment-cmw500.git
+	branch = NCC2FW-45_JM
+[submodule "modem-manager-eg21"]
+	path = modem-manager-eg21
+	url = git@gitlab.rainbird.com:repo/firmware/projects/ncc2/submodules/modem-manager-eg21.git
+	branch = NCC2FW-45_JM

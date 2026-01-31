@@ -1,0 +1,41 @@
+[project]
+name = "rainbird-ncc2-modem-tests"
+version = "0.1.0"
+description = "Test framework for cellular modem testing with R&S CMW500 Base Station Simulator"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "equipment-cmw500",
+    "pyserial>=3.5",
+    "pytest>=8.0",
+    "pytest-timeout>=2.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.14",
+]
+
+[tool.uv.sources]
+equipment-cmw500 = { path = "equipment-cmw500", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "hardware: mark test as requiring hardware (CMW500/modem)",
+    "lte: mark test as LTE-specific",
+    "wcdma: mark test as WCDMA-specific",
+    "gsm: mark test as GSM-specific",
+    "slow: mark test as slow (>30 seconds)",
+    "end_to_end: mark test as end-to-end requiring internet via DAU",
+    "unit: mark test as unit test (no hardware required)",
+]
+addopts = "-v"
+timeout = 30
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
