@@ -89,3 +89,31 @@ RAPID_CHANGE_INTERVAL_SEC = 1.0
 # UE measurement report polling (CMW500 returns NAV until first report)
 UE_REPORT_POLL_TIMEOUT_SEC = 20.0
 UE_REPORT_POLL_INTERVAL_SEC = 0.5
+
+# ---------------------------------------------------------------------------
+# Power consumption measurement (requires optional saleae-mso-api)
+# ---------------------------------------------------------------------------
+
+# Duration of analog capture for each modem condition (seconds)
+POWER_CAPTURE_DURATION_SEC = 5.0
+
+# Settle time after establishing a modem condition before starting capture
+POWER_CONDITION_SETTLE_SEC = 3.0
+
+# Saleae MSO analog sample rate (Hz) -- 10 MSa/s for power envelope
+POWER_SAMPLE_RATE_HZ = 10_000_000
+
+# Default shunt resistance in Ohms for current measurement (I = V / R)
+POWER_DEFAULT_SHUNT_OHMS = 0.01
+
+# Default Saleae analog channel index for VBUS measurement
+POWER_ANALOG_CHANNEL = 0
+
+# Continuous data transfer duration (seconds)
+POWER_CONTINUOUS_TX_DURATION_SEC = 10.0
+
+# Extra time beyond capture duration before killing subprocesses (seconds)
+POWER_SUBPROCESS_GRACE_SEC = 2.0
+
+# @pytest.mark.timeout() for power consumption tests
+TEST_TIMEOUT_POWER = 300

@@ -15,9 +15,19 @@ dependencies = [
 dev = [
     "ruff>=0.14.14",
 ]
+power = [
+    "saleae-mso-api>=0.5.0",
+    "numpy>=1.26",
+]
 
 [tool.uv.sources]
 equipment-cmw500 = { path = "equipment-cmw500", editable = true }
+saleae-mso-api = { index = "saleae" }
+
+[[tool.uv.index]]
+name = "saleae"
+url = "https://downloads.saleae.com/pypi"
+explicit = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -29,6 +39,7 @@ markers = [
     "slow: mark test as slow (>30 seconds)",
     "end_to_end: mark test as end-to-end requiring internet via DAU",
     "unit: mark test as unit test (no hardware required)",
+    "power_consumption: mark test as requiring Saleae Logic MSO for power measurement",
 ]
 addopts = "-v"
 timeout = 30

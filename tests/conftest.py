@@ -13,6 +13,8 @@ pytest_plugins = [
     "tests.fixtures.dau",
     "tests.fixtures.modem",
     "tests.fixtures.helpers",
+    "tests.fixtures.logic_mso",
+    "tests.fixtures.data_traffic",
 ]
 
 
@@ -72,6 +74,30 @@ def pytest_addoption(parser):
         default=None,
         help="DAU LAN static IP (implies --dau-lan-mode=static)",
     )
+    parser.addoption(
+        "--logic-mso-serial",
+        action="store",
+        default=None,
+        help="Saleae Logic MSO serial number (auto-detect if not specified)",
+    )
+    parser.addoption(
+        "--shunt-resistance",
+        action="store",
+        default=None,
+        help="Current shunt resistance in Ohms (default: 0.01)",
+    )
+    parser.addoption(
+        "--capture-duration",
+        action="store",
+        default=None,
+        help="Power capture duration in seconds (default: 5.0)",
+    )
+    parser.addoption(
+        "--skip-power",
+        action="store_true",
+        default=False,
+        help="Skip power consumption tests",
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -87,3 +113,9 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "end_to_end" in item.keywords:
                 item.add_marker(skip_e2e)
+
+    if config.getoption("--skip-power"):
+        skip_power = pytest.mark.skip(reason="--skip-power specified")
+        for item in items:
+            if "power_consumption" in item.keywords:
+                item.add_marker(skip_power)
