@@ -106,14 +106,30 @@ POWER_SAMPLE_RATE_HZ = 10_000_000
 # Default shunt resistance in Ohms for current measurement (I = V / R)
 POWER_DEFAULT_SHUNT_OHMS = 0.01
 
+# Measurement mode: "differential" (2-ch) or "inamp" (1-ch with amplifier)
+POWER_DEFAULT_MODE = "differential"
+
+# Instrumentation amplifier gain (V/V) for inamp mode
+POWER_DEFAULT_INAMP_GAIN = 20.0
+
 # Default Saleae analog channel index for VBUS measurement
 POWER_ANALOG_CHANNEL = 0
+
+# Differential mode channel indices (high-side / low-side of shunt)
+POWER_DIFFERENTIAL_CHANNEL_A = 0
+POWER_DIFFERENTIAL_CHANNEL_B = 1
 
 # Continuous data transfer duration (seconds)
 POWER_CONTINUOUS_TX_DURATION_SEC = 10.0
 
 # Extra time beyond capture duration before killing subprocesses (seconds)
 POWER_SUBPROCESS_GRACE_SEC = 2.0
+
+# Modem rail typical current budget (CELL_MOD_3V3_VCC) in milliamps
+POWER_MODEM_TYPICAL_BUDGET_MA = 350.0
+
+# PSU continuous current limit (USB spec) in milliamps
+POWER_SUPPLY_CONTINUOUS_MA = 500.0
 
 # @pytest.mark.timeout() for power consumption tests
 TEST_TIMEOUT_POWER = 300

@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" font-family="Arial, sans-serif">
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#d32f2f"/>
+    </marker>
+    <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1565c0"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="620" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="480" y="32" text-anchor="middle" font-weight="bold" font-size="18" fill="#333">Power Consumption Measurement — High-Side Shunt Wiring</text>
+
+  <!-- ====== Test Host ====== -->
+  <rect x="30" y="60" width="160" height="80" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <text x="110" y="95" text-anchor="middle" font-weight="bold" font-size="14" fill="#1976d2">Test Host</text>
+  <text x="110" y="115" text-anchor="middle" font-size="11" fill="#555">USB Port (5 V)</text>
+
+  <!-- ====== USB Breakout Board ====== -->
+  <rect x="260" y="55" width="280" height="170" rx="8" fill="#fff8e1" stroke="#f9a825" stroke-width="2"/>
+  <text x="400" y="78" text-anchor="middle" font-weight="bold" font-size="14" fill="#f9a825">USB Breakout Board</text>
+
+  <!-- VBUS high-side rail (top) -->
+  <text x="275" y="108" font-size="11" fill="#d32f2f" font-weight="bold">VBUS (+5 V)</text>
+  <line x1="275" y1="115" x2="365" y2="115" stroke="#d32f2f" stroke-width="2.5"/>
+
+  <!-- Node A label -->
+  <circle cx="365" cy="115" r="4" fill="#d32f2f"/>
+  <text x="365" y="103" text-anchor="middle" font-size="10" font-weight="bold" fill="#d32f2f">A</text>
+
+  <!-- Shunt resistor symbol -->
+  <rect x="370" y="105" width="70" height="20" rx="3" fill="#fff" stroke="#333" stroke-width="1.5"/>
+  <text x="405" y="119" text-anchor="middle" font-size="10" fill="#333">R_shunt</text>
+  <text x="405" y="143" text-anchor="middle" font-size="10" fill="#666">0.01 Ω, ≥1 W</text>
+
+  <!-- Node B label -->
+  <circle cx="445" cy="115" r="4" fill="#d32f2f"/>
+  <text x="445" y="103" text-anchor="middle" font-size="10" font-weight="bold" fill="#d32f2f">B</text>
+
+  <line x1="445" y1="115" x2="530" y2="115" stroke="#d32f2f" stroke-width="2.5"/>
+
+  <!-- GND rail (bottom) -->
+  <text x="275" y="195" font-size="11" fill="#333" font-weight="bold">GND</text>
+  <line x1="275" y1="200" x2="530" y2="200" stroke="#333" stroke-width="2.5"/>
+
+  <!-- D+/D- (data lines, pass-through) -->
+  <line x1="275" y1="160" x2="530" y2="160" stroke="#888" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="400" y="173" text-anchor="middle" font-size="9" fill="#888">D+ / D− (data — pass-through)</text>
+
+  <!-- ====== Connection: Host to Breakout ====== -->
+  <line x1="190" y1="100" x2="260" y2="100" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="225" y="93" text-anchor="middle" font-size="10" fill="#333">USB</text>
+
+  <!-- ====== Modem (DUT) ====== -->
+  <rect x="600" y="60" width="160" height="80" rx="8" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="680" y="95" text-anchor="middle" font-weight="bold" font-size="14" fill="#388e3c">Modem (DUT)</text>
+  <text x="680" y="115" text-anchor="middle" font-size="11" fill="#555">Quectel EG21-G</text>
+
+  <!-- Connection: Breakout to Modem -->
+  <line x1="540" y1="100" x2="600" y2="100" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- ====== Current direction arrow ====== -->
+  <line x1="330" y1="90" x2="480" y2="90" stroke="#d32f2f" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrowhead-red)"/>
+  <text x="405" y="85" text-anchor="middle" font-size="10" fill="#d32f2f">I_load →</text>
+
+  <!-- ================================================================ -->
+  <!-- MEASUREMENT SECTION -->
+  <!-- ================================================================ -->
+
+  <text x="480" y="265" text-anchor="middle" font-weight="bold" font-size="15" fill="#333">Measurement Options</text>
+
+  <!-- ====== Option 1: Direct Differential (Two Channels) ====== -->
+  <rect x="30" y="285" width="420" height="220" rx="8" fill="#e8eaf6" stroke="#3949ab" stroke-width="2"/>
+  <text x="240" y="310" text-anchor="middle" font-weight="bold" font-size="13" fill="#3949ab">Option 1: Direct Differential (Two Channels)</text>
+
+  <!-- Saleae MSO box -->
+  <rect x="55" y="325" width="180" height="110" rx="6" fill="#fff" stroke="#3949ab" stroke-width="1.5"/>
+  <text x="145" y="348" text-anchor="middle" font-weight="bold" font-size="12" fill="#3949ab">Saleae Logic MSO</text>
+
+  <text x="70" y="372" font-size="11" fill="#333">CH0 (analog) → Node A</text>
+  <text x="70" y="392" font-size="11" fill="#333">CH1 (analog) → Node B</text>
+  <text x="70" y="412" font-size="11" fill="#333">GND clip → USB GND</text>
+
+  <!-- Probe lines from Saleae to nodes -->
+  <line x1="235" y1="365" x2="350" y2="320" stroke="#1565c0" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowhead-blue)"/>
+  <text x="355" y="318" font-size="10" font-weight="bold" fill="#1565c0">A</text>
+
+  <line x1="235" y1="385" x2="395" y2="320" stroke="#1565c0" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowhead-blue)"/>
+  <text x="400" y="318" font-size="10" font-weight="bold" fill="#1565c0">B</text>
+
+  <!-- Formula -->
+  <text x="290" y="370" font-size="11" fill="#333" font-weight="bold">V_shunt = CH0 − CH1</text>
+  <text x="290" y="388" font-size="11" fill="#333" font-weight="bold">I = V_shunt / R</text>
+
+  <!-- Notes -->
+  <text x="55" y="460" font-size="10" fill="#555">• Use 1x probes (no attenuation)</text>
+  <text x="55" y="475" font-size="10" fill="#555">• Rejects ~5 V common-mode on VBUS</text>
+  <text x="55" y="490" font-size="10" fill="#555">• Best accuracy for low shunt voltages</text>
+
+  <!-- ====== Option 2: With Instrumentation Amplifier ====== -->
+  <rect x="480" y="285" width="450" height="220" rx="8" fill="#fce4ec" stroke="#c62828" stroke-width="2"/>
+  <text x="705" y="310" text-anchor="middle" font-weight="bold" font-size="13" fill="#c62828">Option 2: Instrumentation Amplifier (Recommended)</text>
+
+  <!-- In-Amp box -->
+  <rect x="505" y="325" width="160" height="90" rx="6" fill="#fff" stroke="#c62828" stroke-width="1.5"/>
+  <text x="585" y="348" text-anchor="middle" font-weight="bold" font-size="12" fill="#c62828">In-Amp</text>
+  <text x="585" y="366" text-anchor="middle" font-size="11" fill="#333">Gain = 20 V/V</text>
+  <text x="585" y="382" text-anchor="middle" font-size="10" fill="#666">(e.g. INA219, AD8421)</text>
+  <text x="585" y="398" text-anchor="middle" font-size="10" fill="#666">V_ref = GND</text>
+
+  <!-- In-Amp inputs -->
+  <text x="495" y="344" font-size="10" font-weight="bold" fill="#c62828">A</text>
+  <line x1="505" y1="340" x2="490" y2="340" stroke="#c62828" stroke-width="1.5"/>
+  <text x="495" y="378" font-size="10" font-weight="bold" fill="#c62828">B</text>
+  <line x1="505" y1="375" x2="490" y2="375" stroke="#c62828" stroke-width="1.5"/>
+
+  <!-- In-Amp output to Saleae -->
+  <line x1="665" y1="360" x2="720" y2="360" stroke="#c62828" stroke-width="2" marker-end="url(#arrowhead-red)"/>
+
+  <!-- Saleae MSO box (option 2) -->
+  <rect x="720" y="330" width="180" height="75" rx="6" fill="#fff" stroke="#3949ab" stroke-width="1.5"/>
+  <text x="810" y="353" text-anchor="middle" font-weight="bold" font-size="12" fill="#3949ab">Saleae Logic MSO</text>
+  <text x="735" y="375" font-size="11" fill="#333">CH0 → In-Amp out</text>
+  <text x="735" y="393" font-size="11" fill="#333">GND → USB GND</text>
+
+  <!-- Formula -->
+  <text x="505" y="440" font-size="11" fill="#333" font-weight="bold">V_out = 20 × (V_A − V_B)</text>
+  <text x="505" y="458" font-size="11" fill="#333" font-weight="bold">I = V_out / (20 × R_shunt)</text>
+
+  <!-- Example -->
+  <text x="505" y="480" font-size="10" fill="#555">• 500 mA → 5 mV shunt → 100 mV output</text>
+  <text x="505" y="495" font-size="10" fill="#555">• Single Saleae channel, hardware CMRR &gt;80 dB</text>
+
+  <!-- ================================================================ -->
+  <!-- LEGEND -->
+  <!-- ================================================================ -->
+  <rect x="30" y="530" width="900" height="75" rx="5" fill="#f5f5f5" stroke="#ccc" stroke-width="1"/>
+  <text x="50" y="555" font-weight="bold" font-size="12" fill="#333">Key Points:</text>
+  <text x="50" y="575" font-size="11" fill="#333">• High-side shunt: R_shunt is on the VBUS (+5 V) rail, between the USB host supply and the DUT. GND is unbroken.</text>
+  <text x="50" y="592" font-size="11" fill="#333">• Two probes (or in-amp differential inputs) are required to reject the ~5 V common-mode voltage on VBUS.</text>
+  <text x="700" y="555" font-size="11" fill="#333">• Use 1x probes (not 10x)</text>
+  <text x="700" y="575" font-size="11" fill="#333">• Shunt: 0.01 Ω default</text>
+</svg>

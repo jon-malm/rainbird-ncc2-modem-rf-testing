@@ -14,7 +14,11 @@ import pytest
 from tests.constants import (
     POWER_ANALOG_CHANNEL,
     POWER_CAPTURE_DURATION_SEC,
+    POWER_DEFAULT_INAMP_GAIN,
+    POWER_DEFAULT_MODE,
     POWER_DEFAULT_SHUNT_OHMS,
+    POWER_DIFFERENTIAL_CHANNEL_A,
+    POWER_DIFFERENTIAL_CHANNEL_B,
     POWER_SAMPLE_RATE_HZ,
 )
 
@@ -62,14 +66,41 @@ def capture_duration(request) -> float:
     return float(value) if value else POWER_CAPTURE_DURATION_SEC
 
 
+@pytest.fixture(scope="session")
+def power_mode(request) -> str:
+    """Measurement mode from CLI option or default."""
+    value = request.config.getoption("--power-mode", default=None)
+    return value if value else POWER_DEFAULT_MODE
+
+
+@pytest.fixture(scope="session")
+def inamp_gain(request) -> float:
+    """Instrumentation amplifier gain from CLI option or default."""
+    value = request.config.getoption("--inamp-gain", default=None)
+    return float(value) if value else POWER_DEFAULT_INAMP_GAIN
+
+
 @pytest.fixture
 def capture_power():
     """Helper fixture that captures power data from the Saleae Logic MSO.
 
-    Returns a callable with ``start()`` and ``wait()`` methods so the caller
-    can establish modem conditions *while* the capture is running::
+    Supports two measurement topologies (selected via ``--power-mode``):
 
-        cap = capture_power.start(logic_mso, shunt_resistance, duration, save_dir)
+    ``differential``
+        Two Saleae channels measure Node A and Node B of the high-side
+        shunt.  Current is computed as ``(CH_A - CH_B) / R_shunt``.
+
+    ``inamp``
+        A single Saleae channel reads the output of an instrumentation
+        amplifier across the shunt.  Current is computed as
+        ``V_out / (gain * R_shunt)``.
+
+    Usage::
+
+        cap = capture_power.start(
+            logic_mso, shunt_resistance, capture_duration, tmp_path,
+            mode=power_mode, gain=inamp_gain,
+        )
         # ... establish modem condition here ...
         result = capture_power.wait(cap)
     """
@@ -81,18 +112,38 @@ def capture_power():
         shunt_ohms: float,
         duration_sec: float,
         save_dir: Path,
-        channel: int = POWER_ANALOG_CHANNEL,
+        *,
+        mode: str = POWER_DEFAULT_MODE,
+        gain: float = POWER_DEFAULT_INAMP_GAIN,
         sample_rate: float = POWER_SAMPLE_RATE_HZ,
-        channel_name: str = "vbus_shunt",
     ) -> dict:
         """Start an MSO timed capture in a background thread.
 
         Returns a handle dict to pass to ``_wait()``.
         """
+        if mode == "differential":
+            enabled_channels = [
+                mso_api.AnalogChannel(
+                    channel=POWER_DIFFERENTIAL_CHANNEL_A, name="node_a",
+                ),
+                mso_api.AnalogChannel(
+                    channel=POWER_DIFFERENTIAL_CHANNEL_B, name="node_b",
+                ),
+            ]
+            ch_desc = (
+                f"CH{POWER_DIFFERENTIAL_CHANNEL_A} - "
+                f"CH{POWER_DIFFERENTIAL_CHANNEL_B}"
+            )
+        else:
+            enabled_channels = [
+                mso_api.AnalogChannel(
+                    channel=POWER_ANALOG_CHANNEL, name="vbus_shunt",
+                ),
+            ]
+            ch_desc = f"CH{POWER_ANALOG_CHANNEL} (in-amp gain={gain})"
+
         capture_config = mso_api.CaptureConfig(
-            enabled_channels=[
-                mso_api.AnalogChannel(channel=channel, name=channel_name),
-            ],
+            enabled_channels=enabled_channels,
             analog_settings=mso_api.AnalogSettings(sample_rate=sample_rate),
             capture_settings=mso_api.TimedCapture(
                 capture_length_seconds=duration_sec,
@@ -104,7 +155,8 @@ def capture_power():
             "error": None,
             "shunt_ohms": shunt_ohms,
             "duration_sec": duration_sec,
-            "channel_name": channel_name,
+            "mode": mode,
+            "gain": gain,
         }
 
         def _run_capture():
@@ -122,10 +174,11 @@ def capture_power():
         handle["thread"] = thread
 
         logger.info(
-            "MSO capture started: %.1fs @ %s Hz on channel %d",
+            "MSO capture started: %.1fs @ %s Hz, mode=%s (%s)",
             duration_sec,
             f"{sample_rate:,.0f}",
-            channel,
+            mode,
+            ch_desc,
         )
         return handle
 
@@ -142,11 +195,23 @@ def capture_power():
             raise handle["error"]
 
         capture = handle["capture"]
-        channel_name = handle["channel_name"]
         shunt_ohms = handle["shunt_ohms"]
+        mode = handle["mode"]
 
-        voltages = capture.analog_data[channel_name].voltages
-        currents_a = voltages / shunt_ohms
+        if mode == "differential":
+            voltages_a = capture.analog_data["node_a"].voltages
+            voltages_b = capture.analog_data["node_b"].voltages
+            v_shunt = voltages_a - voltages_b
+            currents_a = v_shunt / shunt_ohms
+            avg_voltage_mv = float(np.mean(v_shunt) * 1000.0)
+            num_samples = len(voltages_a)
+        else:
+            v_out = capture.analog_data["vbus_shunt"].voltages
+            gain = handle["gain"]
+            currents_a = v_out / (gain * shunt_ohms)
+            avg_voltage_mv = float(np.mean(v_out) * 1000.0)
+            num_samples = len(v_out)
+
         currents_ma = currents_a * 1000.0
 
         result = {
@@ -154,15 +219,16 @@ def capture_power():
             "min_current_ma": float(np.min(currents_ma)),
             "max_current_ma": float(np.max(currents_ma)),
             "std_current_ma": float(np.std(currents_ma)),
-            "num_samples": len(voltages),
+            "num_samples": num_samples,
             "duration_sec": handle["duration_sec"],
             "shunt_ohms": shunt_ohms,
-            "avg_voltage_mv": float(np.mean(voltages) * 1000.0),
+            "avg_voltage_mv": avg_voltage_mv,
         }
 
         logger.info(
-            "MSO capture complete: avg=%.1f mA, min=%.1f mA, max=%.1f mA "
+            "MSO capture complete (%s): avg=%.1f mA, min=%.1f mA, max=%.1f mA "
             "(%d samples over %.1fs)",
+            mode,
             result["avg_current_ma"],
             result["min_current_ma"],
             result["max_current_ma"],

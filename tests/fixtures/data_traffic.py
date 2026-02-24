@@ -26,8 +26,16 @@ def generate_traffic():
     - ``find_interface()`` — auto-detect the modem USB ECM interface.
     """
 
+    # Drivers used by USB cellular modems in ECM/NCM mode.
+    _MODEM_DRIVERS = {"cdc_ether", "cdc_ecm", "cdc_ncm", "rndis_host", "qmi_wwan"}
+
     def _find_interface() -> str | None:
-        """Find the modem's USB ECM network interface."""
+        """Find the modem's USB ECM network interface.
+
+        Checks the kernel driver for each network interface rather than
+        relying on the interface name, because predictable naming (e.g.
+        ``enx*``) does not contain ``usb`` or ``wwan`` prefixes.
+        """
         result = subprocess.run(
             ["ip", "-br", "link"],
             capture_output=True,
@@ -42,12 +50,12 @@ def generate_traffic():
             if not parts:
                 continue
             iface = parts[0]
-            if any(p in iface.lower() for p in ("usb", "wwan")):
-                usb_path = f"/sys/class/net/{iface}/device"
-                if os.path.exists(usb_path):
-                    real_path = os.path.realpath(usb_path)
-                    if "usb" in real_path.lower():
-                        return iface
+            driver_path = f"/sys/class/net/{iface}/device/driver"
+            if not os.path.exists(driver_path):
+                continue
+            driver = os.path.basename(os.path.realpath(driver_path))
+            if driver in _MODEM_DRIVERS:
+                return iface
         return None
 
     def _send_fixed(

@@ -24,7 +24,9 @@ pytest.importorskip(
 from tests.constants import (
     AT_CMD_TIMEOUT,
     POWER_CONDITION_SETTLE_SEC,
+    POWER_MODEM_TYPICAL_BUDGET_MA,
     POWER_SUBPROCESS_GRACE_SEC,
+    POWER_SUPPLY_CONTINUOUS_MA,
     RADIO_OFF_SETTLE_SEC,
     RADIO_ON_SETTLE_SEC,
     TEST_TIMEOUT_POWER,
@@ -56,12 +58,15 @@ class TestPowerConsumption:
         shunt_resistance,
         capture_duration,
         capture_power,
+        power_mode,
+        inamp_gain,
         tmp_path,
     ):
         """Measure power with radio off (AT+CFUN=0)."""
         # Start capture first — record the transition into radio-off
         cap = capture_power.start(
-            logic_mso, shunt_resistance, capture_duration, tmp_path
+            logic_mso, shunt_resistance, capture_duration, tmp_path,
+            mode=power_mode, gain=inamp_gain,
         )
 
         # Establish condition: turn radio off
@@ -82,6 +87,13 @@ class TestPowerConsumption:
             result["max_current_ma"],
         )
 
+        # Radio-off average must be well below the modem rail budget
+        # (Component Selection Analysis: CELL_MOD_3V3_VCC = 350 mA typical)
+        assert result["avg_current_ma"] < POWER_MODEM_TYPICAL_BUDGET_MA, (
+            f"Radio-off avg current {result['avg_current_ma']:.1f} mA exceeds "
+            f"modem rail budget {POWER_MODEM_TYPICAL_BUDGET_MA} mA"
+        )
+
     # ------------------------------------------------------------------
     # 2. Connected idle — registered, no data transfer
     # ------------------------------------------------------------------
@@ -94,12 +106,15 @@ class TestPowerConsumption:
         shunt_resistance,
         capture_duration,
         capture_power,
+        power_mode,
+        inamp_gain,
         wait_for_registration,
         tmp_path,
     ):
         """Measure power when registered on LTE but idle (no data)."""
         cap = capture_power.start(
-            logic_mso, shunt_resistance, capture_duration, tmp_path
+            logic_mso, shunt_resistance, capture_duration, tmp_path,
+            mode=power_mode, gain=inamp_gain,
         )
 
         if not wait_for_registration(modem):
@@ -116,6 +131,12 @@ class TestPowerConsumption:
             result["max_current_ma"],
         )
 
+        # Idle average should stay within the modem rail budget
+        assert result["avg_current_ma"] < POWER_MODEM_TYPICAL_BUDGET_MA, (
+            f"Idle avg current {result['avg_current_ma']:.1f} mA exceeds "
+            f"modem rail budget {POWER_MODEM_TYPICAL_BUDGET_MA} mA"
+        )
+
     # ------------------------------------------------------------------
     # 3. Transmit 1 KB
     # ------------------------------------------------------------------
@@ -128,6 +149,8 @@ class TestPowerConsumption:
         shunt_resistance,
         capture_duration,
         capture_power,
+        power_mode,
+        inamp_gain,
         wait_for_registration,
         activate_data_connection_with_modem,
         generate_traffic,
@@ -136,7 +159,8 @@ class TestPowerConsumption:
     ):
         """Measure power during 1 KB data transmission."""
         cap = capture_power.start(
-            logic_mso, shunt_resistance, capture_duration, tmp_path
+            logic_mso, shunt_resistance, capture_duration, tmp_path,
+            mode=power_mode, gain=inamp_gain,
         )
 
         if not wait_for_registration(modem):
@@ -145,7 +169,7 @@ class TestPowerConsumption:
         if not activate_data_connection_with_modem(modem, lte_cell):
             pytest.skip("Failed to activate data connection")
 
-        target_ip = dau_with_internet.get_gateway_ip()
+        target_ip = dau_with_internet.get_lan_dau_info().ip_address
         generate_traffic.send_fixed(
             target_ip, 1024, timeout_sec=capture_duration + POWER_SUBPROCESS_GRACE_SEC
         )
@@ -157,6 +181,16 @@ class TestPowerConsumption:
             result["avg_current_ma"],
             result["min_current_ma"],
             result["max_current_ma"],
+        )
+
+        # TX average must stay within modem rail budget; peak within PSU limit
+        assert result["avg_current_ma"] < POWER_MODEM_TYPICAL_BUDGET_MA, (
+            f"TX-1K avg current {result['avg_current_ma']:.1f} mA exceeds "
+            f"modem rail budget {POWER_MODEM_TYPICAL_BUDGET_MA} mA"
+        )
+        assert result["max_current_ma"] < POWER_SUPPLY_CONTINUOUS_MA, (
+            f"TX-1K peak current {result['max_current_ma']:.1f} mA exceeds "
+            f"PSU continuous limit {POWER_SUPPLY_CONTINUOUS_MA} mA"
         )
 
     # ------------------------------------------------------------------
@@ -171,6 +205,8 @@ class TestPowerConsumption:
         shunt_resistance,
         capture_duration,
         capture_power,
+        power_mode,
+        inamp_gain,
         wait_for_registration,
         activate_data_connection_with_modem,
         generate_traffic,
@@ -179,7 +215,8 @@ class TestPowerConsumption:
     ):
         """Measure power during 4 KB data transmission."""
         cap = capture_power.start(
-            logic_mso, shunt_resistance, capture_duration, tmp_path
+            logic_mso, shunt_resistance, capture_duration, tmp_path,
+            mode=power_mode, gain=inamp_gain,
         )
 
         if not wait_for_registration(modem):
@@ -188,7 +225,7 @@ class TestPowerConsumption:
         if not activate_data_connection_with_modem(modem, lte_cell):
             pytest.skip("Failed to activate data connection")
 
-        target_ip = dau_with_internet.get_gateway_ip()
+        target_ip = dau_with_internet.get_lan_dau_info().ip_address
         generate_traffic.send_fixed(
             target_ip, 4096, timeout_sec=capture_duration + POWER_SUBPROCESS_GRACE_SEC
         )
@@ -200,6 +237,15 @@ class TestPowerConsumption:
             result["avg_current_ma"],
             result["min_current_ma"],
             result["max_current_ma"],
+        )
+
+        assert result["avg_current_ma"] < POWER_MODEM_TYPICAL_BUDGET_MA, (
+            f"TX-4K avg current {result['avg_current_ma']:.1f} mA exceeds "
+            f"modem rail budget {POWER_MODEM_TYPICAL_BUDGET_MA} mA"
+        )
+        assert result["max_current_ma"] < POWER_SUPPLY_CONTINUOUS_MA, (
+            f"TX-4K peak current {result['max_current_ma']:.1f} mA exceeds "
+            f"PSU continuous limit {POWER_SUPPLY_CONTINUOUS_MA} mA"
         )
 
     # ------------------------------------------------------------------
@@ -214,6 +260,8 @@ class TestPowerConsumption:
         shunt_resistance,
         capture_duration,
         capture_power,
+        power_mode,
+        inamp_gain,
         wait_for_registration,
         activate_data_connection_with_modem,
         generate_traffic,
@@ -222,7 +270,8 @@ class TestPowerConsumption:
     ):
         """Measure power during continuous data transmission."""
         cap = capture_power.start(
-            logic_mso, shunt_resistance, capture_duration, tmp_path
+            logic_mso, shunt_resistance, capture_duration, tmp_path,
+            mode=power_mode, gain=inamp_gain,
         )
 
         if not wait_for_registration(modem):
@@ -231,7 +280,7 @@ class TestPowerConsumption:
         if not activate_data_connection_with_modem(modem, lte_cell):
             pytest.skip("Failed to activate data connection")
 
-        target_ip = dau_with_internet.get_gateway_ip()
+        target_ip = dau_with_internet.get_lan_dau_info().ip_address
         proc = generate_traffic.send_continuous(target_ip, capture_duration)
         if proc is None:
             pytest.skip("Could not find modem network interface for traffic")
@@ -250,4 +299,13 @@ class TestPowerConsumption:
             result["avg_current_ma"],
             result["min_current_ma"],
             result["max_current_ma"],
+        )
+
+        assert result["avg_current_ma"] < POWER_MODEM_TYPICAL_BUDGET_MA, (
+            f"Continuous TX avg current {result['avg_current_ma']:.1f} mA exceeds "
+            f"modem rail budget {POWER_MODEM_TYPICAL_BUDGET_MA} mA"
+        )
+        assert result["max_current_ma"] < POWER_SUPPLY_CONTINUOUS_MA, (
+            f"Continuous TX peak current {result['max_current_ma']:.1f} mA exceeds "
+            f"PSU continuous limit {POWER_SUPPLY_CONTINUOUS_MA} mA"
         )

@@ -93,6 +93,19 @@ def pytest_addoption(parser):
         help="Power capture duration in seconds (default: 5.0)",
     )
     parser.addoption(
+        "--power-mode",
+        action="store",
+        default=None,
+        choices=["differential", "inamp"],
+        help="Power measurement mode: differential (2-ch) or inamp (1-ch with amp)",
+    )
+    parser.addoption(
+        "--inamp-gain",
+        action="store",
+        default=None,
+        help="Instrumentation amplifier gain in V/V (default: 20.0, inamp mode only)",
+    )
+    parser.addoption(
         "--skip-power",
         action="store_true",
         default=False,
