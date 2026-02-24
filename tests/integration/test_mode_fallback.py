@@ -10,9 +10,12 @@ import time
 import pytest
 
 from tests.constants import (
+    AT_CMD_TIMEOUT,
     CELL_RESELECTION_WAIT_SEC,
     CELL_STABILIZE_SEC,
     POLL_INTERVAL_SEC,
+    QOS_LTE_RSRP_THRESHOLD_DBM,
+    RADIO_OFF_SETTLE_SEC,
     RAT_DETECTION_WAIT_SEC,
     RECOVERY_TIMEOUT_SEC,
     SIGNAL_SETTLE_SEC,
@@ -68,16 +71,23 @@ class TestModeFallback:
             safe_cleanup(lte.deactivate_cell)
             pytest.skip(f"Modem not in LTE mode (got {sq.mode})")
 
-        # Disable LTE, enable WCDMA
+        # Disable LTE, enable WCDMA — switch scan mode to AUTO so the
+        # modem can find the WCDMA cell (fixture sets LTE-only mode).
+        modem.send_command('AT+QCFG="nwscanmode",0', timeout=AT_CMD_TIMEOUT)
         try:
             lte.deactivate_cell()
             wcdma.activate_cell()
         except Exception as e:
+            modem.send_command('AT+QCFG="nwscanmode",3', timeout=AT_CMD_TIMEOUT)
             pytest.skip(f"Failed to switch cells: {e}")
 
-        # Wait for WCDMA registration using CREG (CS registration for 2G/3G)
-        # CEREG is for LTE, CREG is for 2G/3G
+        # Cycle radio to trigger fresh WCDMA scan
+        modem.send_command("AT+CFUN=0", timeout=AT_CMD_TIMEOUT)
+        time.sleep(RADIO_OFF_SETTLE_SEC)
+        modem.send_command("AT+CFUN=1", timeout=AT_CMD_TIMEOUT)
         time.sleep(RAT_DETECTION_WAIT_SEC)
+
+        # Wait for WCDMA registration using CREG (CS registration for 2G/3G)
         import re
 
         start = time.time()
@@ -95,21 +105,31 @@ class TestModeFallback:
 
         if not registered:
             safe_cleanup(wcdma.deactivate_cell)
+            modem.send_command('AT+QCFG="nwscanmode",3', timeout=AT_CMD_TIMEOUT)
             pytest.skip("Modem did not fall back to WCDMA")
 
         sq = modem.get_signal_quality()
-        # Cleanup before assertion
+        # Cleanup before assertion — restore LTE-only scan mode and turn
+        # radio off.  Leave the radio off so the modem doesn't scan into
+        # the void before the next test's lte_cell fixture activates a cell.
+        # The wait_for_registration helper will turn it back on.
         safe_cleanup(wcdma.deactivate_cell)
+        modem.send_command('AT+QCFG="nwscanmode",3', timeout=AT_CMD_TIMEOUT)
+        modem.send_command("AT+CFUN=0", timeout=AT_CMD_TIMEOUT)
+        time.sleep(RADIO_OFF_SETTLE_SEC)
         assert sq.mode == "WCDMA", f"Expected WCDMA mode, got {sq.mode}"
 
     @pytest.mark.timeout(TEST_TIMEOUT_STANDARD)
     def test_signal_degradation_handling(self, lte_cell, modem, wait_for_registration):
         """Test modem behavior under degrading signal conditions."""
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
-        # Reduce cell power gradually
-        power_levels = [-60, -80, -100, -110]
+        # Reduce cell power gradually, including the spec RSRP threshold
+        # boundary (-120 dBm per Operational Performance Spec Section 5.4)
+        power_levels = [-60, -80, -100, -110, QOS_LTE_RSRP_THRESHOLD_DBM]
 
         for power in power_levels:
             lte_cell.set_dl_power(power)

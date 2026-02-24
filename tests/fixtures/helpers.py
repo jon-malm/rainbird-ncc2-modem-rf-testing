@@ -42,17 +42,37 @@ def wait_for_registration():
         Args:
             modem: ModemManager instance
             timeout_sec: Maximum time to wait for registration
-            force_search: If True, trigger a fresh network search first
+            force_search: If True, trigger a fresh network search first.
+                If False (default), a quick CEREG check is done first —
+                if the modem is already registered the function returns
+                immediately; if not, a radio cycle is performed
+                automatically to avoid waiting for the modem's internal
+                search backoff timer which can be very long after
+                aggressive test sequences.
 
         Returns:
             True if registered successfully, False on timeout
         """
-        if force_search:
-            # Trigger fresh network search by cycling radio
-            modem.send_command("AT+CFUN=0", timeout=AT_CMD_TIMEOUT)
-            time.sleep(RADIO_OFF_SETTLE_SEC)
-            modem.send_command("AT+CFUN=1", timeout=AT_CMD_TIMEOUT)
-            time.sleep(RADIO_ON_SETTLE_SEC)
+        # Quick check — return immediately if already registered
+        resp = modem.send_command("AT+CEREG?")
+        match = re.search(r"\+CEREG:\s*\d+,(\d+)", resp)
+        if match and int(match.group(1)) in (1, 5):
+            return True
+
+        # Not registered — reset scan mode to LTE only and cycle the radio
+        # to trigger a fresh scan.  Previous tests (WCDMA fallback, COPS
+        # mode selection) may have left the modem in a restricted scan
+        # mode or manual operator selection, preventing LTE reacquisition.
+        # nwscanmode 3 = LTE only (faster than AUTO on our LTE-only cell).
+        # Set scan mode and do CFUN cycle BEFORE COPS=0, because COPS=0
+        # triggers an immediate network search and may fail if the radio
+        # is off.
+        modem.send_command('AT+QCFG="nwscanmode",3', timeout=AT_CMD_TIMEOUT)
+        modem.send_command("AT+CFUN=0", timeout=AT_CMD_TIMEOUT)
+        time.sleep(RADIO_OFF_SETTLE_SEC)
+        modem.send_command("AT+CFUN=1", timeout=AT_CMD_TIMEOUT)
+        time.sleep(RADIO_ON_SETTLE_SEC)
+        modem.send_command("AT+COPS=0", timeout=AT_CMD_TIMEOUT)
 
         start = time.time()
 

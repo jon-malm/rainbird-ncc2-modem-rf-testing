@@ -79,14 +79,15 @@ class TestLTEAttach:
     def test_ue_attach_success(self, lte_cell, modem, wait_for_registration):
         """Test successful UE attach to LTE cell."""
         # Modem should register on the cell
-        if not wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC):
-            pytest.skip("Modem did not register on cell within timeout")
+        assert wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         # Verify registration on CMW500 side
-        if not lte_cell.wait_for_ue_registration(
+        assert lte_cell.wait_for_ue_registration(
             timeout_sec=CMW_UE_REGISTRATION_TIMEOUT_SEC
-        ):
-            pytest.skip("CMW500 did not detect UE registration")
+        ), "CMW500 did not detect UE registration"
 
         # Get UE info
         ue_info = lte_cell.get_ue_info()
@@ -102,8 +103,10 @@ class TestLTEAttach:
         activate_data_connection_with_modem,
     ):
         """Test signal quality measurements after attach."""
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         # UE measurement reports require RRC CONNECTED state.  After
         # registration the UE may fall back to RRC IDLE before the test
@@ -137,8 +140,10 @@ class TestLTEAttach:
     ):
         """Test LTE data connection establishment."""
         # Wait for registration
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         # Activate data connection (uses modem-side PDP activation if needed)
         if not activate_data_connection_with_modem(modem, lte_cell):

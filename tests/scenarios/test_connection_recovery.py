@@ -33,6 +33,7 @@ from tests.constants import (
     POLL_INTERVAL_SEC,
     PROLONGED_OUTAGE_DURATION_SEC,
     PROLONGED_RECOVERY_TIMEOUT_SEC,
+    QOS_LTE_RSRP_THRESHOLD_DBM,
     RADIO_OFF_SETTLE_SEC,
     RADIO_ON_SETTLE_SEC,
     RAPID_CHANGE_INTERVAL_SEC,
@@ -76,11 +77,13 @@ class TestConnectionRecovery:
         the modem reconnects when the cell comes back online.
         """
         # Establish initial connection
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, lte_cell):
-            pytest.skip("Failed to establish initial data connection")
+            pytest.fail("Failed to establish initial data connection")
 
         # Record initial signal quality
         initial_sq = modem.get_signal_quality()
@@ -143,8 +146,10 @@ class TestConnectionRecovery:
         Verifies modem stability when the cell is repeatedly cycled,
         simulating unstable network conditions.
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         num_cycles = 3
         successful_recoveries = 0
@@ -200,17 +205,21 @@ class TestConnectionRecovery:
 
         Simulates moving out of coverage area and returning.
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, lte_cell):
-            pytest.skip("Failed to establish initial data connection")
+            pytest.fail("Failed to establish initial data connection")
 
         initial_sq = modem.get_signal_quality()
         logger.info("Initial signal: RSRP=%s dBm", initial_sq.rsrp)
 
-        # Gradually degrade signal to simulate moving out of coverage
-        power_levels = [-60, -90, -110, -120]
+        # Gradually degrade signal to simulate moving out of coverage.
+        # Includes the spec RSRP threshold (-120 dBm per Operational
+        # Performance Spec Section 5.4).
+        power_levels = [-60, -90, -110, QOS_LTE_RSRP_THRESHOLD_DBM]
         lost_registration_at = None
 
         for power in power_levels:
@@ -269,8 +278,10 @@ class TestConnectionRecovery:
 
         Simulates being at the edge of a cell where signal may fluctuate.
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         # Fluctuate signal around edge of coverage
         power_sequence = [-95, -105, -100, -110, -95, -105, -100]
@@ -293,8 +304,11 @@ class TestConnectionRecovery:
             if not is_reg:
                 registration_losses += 1
 
-        # Restore good signal
+        # Restore good signal and let the cell stabilize before forcing
+        # a radio search — the modem may have accumulated stale measurement
+        # state during the rapid fluctuations
         lte_cell.set_dl_power(-60)
+        time.sleep(SIGNAL_SETTLE_SEC)
 
         # Verify final recovery — force_search cycles the radio so the modem
         # re-scans immediately instead of waiting for its periodic timer,
@@ -325,11 +339,13 @@ class TestConnectionRecovery:
 
         Simulates network forcing the UE to detach (e.g., administrative action).
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, lte_cell):
-            pytest.skip("Failed to establish initial data connection")
+            pytest.fail("Failed to establish initial data connection")
 
         # Force UE detach from network side
         lte_cell.detach_ue()
@@ -337,9 +353,37 @@ class TestConnectionRecovery:
         # Wait for modem to process detach
         time.sleep(CELL_DEACTIVATION_DETECT_SEC)
 
-        # Modem should attempt to re-attach automatically
-        recovered = wait_for_registration(modem, timeout_sec=RECOVERY_TIMEOUT_SEC)
+        # After network-initiated detach the modem's PS domain state is torn
+        # down.  A force_search radio cycle clears stale attach state so the
+        # modem performs a fresh EPS attach (including PS re-attach) rather
+        # than relying on its internal timer.
+        recovered = wait_for_registration(
+            modem, timeout_sec=RECOVERY_TIMEOUT_SEC, force_search=True
+        )
         assert recovered, "Modem failed to re-attach after network-initiated detach"
+
+        # Wait for PS domain to fully attach after EPS registration.
+        # CEREG=1 only indicates EPS bearer — the PS data path (CGATT)
+        # may lag behind, especially after network-initiated detach.
+        # Poll CGATT rather than using a fixed sleep so we proceed as
+        # soon as the modem is ready.
+        ps_attached = False
+        ps_start = time.time()
+        while (time.time() - ps_start) < RAT_DETECTION_WAIT_SEC:
+            cgatt = modem.send_command("AT+CGATT?", timeout=AT_CMD_TIMEOUT)
+            if "+CGATT: 1" in cgatt:
+                ps_attached = True
+                break
+            time.sleep(POLL_INTERVAL_SEC)
+
+        if not ps_attached:
+            logger.warning(
+                "PS domain not attached after %.0fs — "
+                "forcing AT+CGATT=1 before data activation",
+                time.time() - ps_start,
+            )
+            modem.send_command("AT+CGATT=1", timeout=AT_PDP_ACTIVATE_TIMEOUT)
+            time.sleep(SIGNAL_SETTLE_SEC)
 
         # Verify data connection can be re-established
         data_recovered = activate_data_connection_with_modem(modem, lte_cell)
@@ -365,8 +409,10 @@ class TestConnectionRecovery:
         modem.send_command("AT+CFUN=1", timeout=AT_CMD_TIMEOUT)
         time.sleep(RADIO_ON_SETTLE_SEC)
 
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         num_cycles = 5
         successful_reattaches = 0
@@ -684,7 +730,10 @@ class TestConnectionRecovery:
             lte.deactivate_cell()
             pytest.skip(f"Failed to configure WCDMA: {e}")
 
-        # Disable LTE, enable WCDMA - simulate moving to 3G-only area
+        # Disable LTE, enable WCDMA - simulate moving to 3G-only area.
+        # Switch scan mode to AUTO so the modem can find the WCDMA cell
+        # (the modem fixture sets LTE-only mode).
+        modem.send_command('AT+QCFG="nwscanmode",0', timeout=AT_CMD_TIMEOUT)
         lte.deactivate_cell()
         wcdma.activate_cell()
 
@@ -709,19 +758,51 @@ class TestConnectionRecovery:
 
         if not wcdma_registered:
             wcdma.deactivate_cell()
+            modem.send_command('AT+QCFG="nwscanmode",3', timeout=AT_CMD_TIMEOUT)
             pytest.skip("Modem did not fall back to WCDMA")
 
         sq = modem.get_signal_quality()
         logger.info("Phase 2: Fell back to WCDMA (mode=%s)", sq.mode)
 
-        # Restore LTE, disable WCDMA - simulate returning to LTE coverage
+        # Restore LTE, disable WCDMA - simulate returning to LTE coverage.
+        # Switch scan mode to LTE only and turn radio off before swapping
+        # cells so the modem releases its WCDMA bearer cleanly.
+        modem.send_command('AT+QCFG="nwscanmode",3', timeout=AT_CMD_TIMEOUT)
+        modem.send_command("AT+CFUN=0", timeout=AT_CMD_TIMEOUT)
+        time.sleep(RADIO_OFF_SETTLE_SEC)
         wcdma.deactivate_cell()
         lte.activate_cell()
+        time.sleep(CELL_STABILIZE_SEC)
+        modem.send_command("AT+CFUN=1", timeout=AT_CMD_TIMEOUT)
+        time.sleep(RADIO_ON_SETTLE_SEC)
 
-        # Wait for LTE registration
-        lte_recovered = wait_for_registration(
-            modem, timeout_sec=RECOVERY_TIMEOUT_SEC, force_search=True
-        )
+        # Poll CEREG directly with generous timeout — avoid calling
+        # wait_for_registration which does another CFUN cycle that wastes
+        # the modem's first scan window.
+        lte_recovered = False
+        start = time.time()
+        while (time.time() - start) < RECOVERY_TIMEOUT_SEC:
+            resp = modem.send_command("AT+CEREG?")
+            match = re.search(r"\+CEREG:\s*\d+,(\d+)", resp)
+            if match and int(match.group(1)) in (1, 5):
+                lte_recovered = True
+                break
+            time.sleep(POLL_INTERVAL_SEC)
+
+        if not lte_recovered:
+            # Last resort: do a full CFUN cycle (wait_for_registration style)
+            modem.send_command("AT+CFUN=0", timeout=AT_CMD_TIMEOUT)
+            time.sleep(RADIO_OFF_SETTLE_SEC)
+            modem.send_command("AT+CFUN=1", timeout=AT_CMD_TIMEOUT)
+            time.sleep(RADIO_ON_SETTLE_SEC)
+            start = time.time()
+            while (time.time() - start) < RECOVERY_TIMEOUT_SEC:
+                resp = modem.send_command("AT+CEREG?")
+                match = re.search(r"\+CEREG:\s*\d+,(\d+)", resp)
+                if match and int(match.group(1)) in (1, 5):
+                    lte_recovered = True
+                    break
+                time.sleep(POLL_INTERVAL_SEC)
 
         # Cleanup
         safe_cleanup(lte.deactivate_cell)
@@ -780,7 +861,8 @@ class TestConnectionRecovery:
             lte.deactivate_cell()
             pytest.skip(f"Failed to configure WCDMA: {e}")
 
-        # Switch to WCDMA
+        # Switch to WCDMA — enable AUTO scan mode so the modem can find it
+        modem.send_command('AT+QCFG="nwscanmode",0', timeout=AT_CMD_TIMEOUT)
         lte.deactivate_cell()
         wcdma.activate_cell()
 
@@ -803,6 +885,7 @@ class TestConnectionRecovery:
 
         if not wcdma_registered:
             wcdma.deactivate_cell()
+            modem.send_command('AT+QCFG="nwscanmode",3', timeout=AT_CMD_TIMEOUT)
             pytest.skip("Modem did not fall back to WCDMA")
 
         # Try to establish data on WCDMA
@@ -818,13 +901,28 @@ class TestConnectionRecovery:
             "available" if wcdma_data else "not available",
         )
 
-        # Return to LTE
+        # Return to LTE.
+        # Switch scan mode to LTE only and turn the radio off BEFORE
+        # swapping cells so the modem releases its WCDMA bearer cleanly.
+        modem.send_command('AT+QCFG="nwscanmode",3', timeout=AT_CMD_TIMEOUT)
+        modem.send_command("AT+CFUN=0", timeout=AT_CMD_TIMEOUT)
+        time.sleep(RADIO_OFF_SETTLE_SEC)
+
         wcdma.deactivate_cell()
         lte.activate_cell()
 
-        # Wait for LTE recovery
+        # Let the CMW500 LTE cell fully activate before turning the modem
+        # radio back on — without this the modem's scan may complete before
+        # the cell is ready to accept attach requests.
+        time.sleep(CELL_STABILIZE_SEC)
+
+        modem.send_command("AT+CFUN=1", timeout=AT_CMD_TIMEOUT)
+        time.sleep(RADIO_ON_SETTLE_SEC)
+
+        # Wait for LTE recovery — wait_for_registration will do a quick
+        # CEREG check first and only cycle the radio again if needed.
         lte_recovered = wait_for_registration(
-            modem, timeout_sec=RECOVERY_TIMEOUT_SEC, force_search=True
+            modem, timeout_sec=RECOVERY_TIMEOUT_SEC
         )
 
         if not lte_recovered:
@@ -859,11 +957,13 @@ class TestConnectionRecovery:
 
         Simulates data session termination while maintaining registration.
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, lte_cell):
-            pytest.skip("Failed to establish initial data connection")
+            pytest.fail("Failed to establish initial data connection")
 
         # Verify PDP context is active
         cgact_resp = modem.send_command("AT+CGACT?", timeout=AT_CMD_TIMEOUT)
@@ -904,11 +1004,13 @@ class TestConnectionRecovery:
 
         Simulates needing to change APN settings (e.g., roaming scenario).
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, lte_cell):
-            pytest.skip("Failed to establish initial data connection")
+            pytest.fail("Failed to establish initial data connection")
 
         logger.info("Initial data connection with default APN")
 
@@ -946,11 +1048,13 @@ class TestConnectionRecovery:
 
         Simulates driving through areas with spotty coverage.
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, lte_cell):
-            pytest.skip("Failed to establish initial data connection")
+            pytest.fail("Failed to establish initial data connection")
 
         # Simulate multiple brief outages
         num_outages = 5
@@ -1002,11 +1106,13 @@ class TestConnectionRecovery:
 
         Simulates extended time without coverage (e.g., underground parking).
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, lte_cell):
-            pytest.skip("Failed to establish initial data connection")
+            pytest.fail("Failed to establish initial data connection")
 
         initial_sq = modem.get_signal_quality()
         logger.info("Initial: mode=%s, RSRP=%s", initial_sq.mode, initial_sq.rsrp)
@@ -1049,8 +1155,10 @@ class TestConnectionRecovery:
 
         Simulates being in motion passing through varying coverage.
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         # Rapid power changes
         # Power levels capped at -100 dBm — deeper dips (e.g. -110) cause

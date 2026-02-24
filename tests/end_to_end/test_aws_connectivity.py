@@ -90,18 +90,19 @@ class TestAWSConnectivity:
         cell = end_to_end_data_path["cell"]
 
         # Wait for modem to register
-        if not wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC):
-            pytest.skip("Modem failed to register")
+        assert wait_for_registration(
+            modem, timeout_sec=REGISTRATION_TIMEOUT_SEC
+        ), "Modem failed to register on active cell"
 
         # Verify registration on CMW500 side
-        if not cell.wait_for_ue_registration(
+        assert cell.wait_for_ue_registration(
             timeout_sec=CMW_UE_REGISTRATION_TIMEOUT_SEC
-        ):
-            pytest.skip("UE not registered on CMW500")
+        ), "UE not registered on CMW500"
 
         # Activate data connection (uses modem-side PDP activation if needed)
-        if not activate_data_connection_with_modem(modem, cell):
-            pytest.skip("Failed to establish data connection")
+        assert activate_data_connection_with_modem(modem, cell), (
+            "Failed to establish data connection"
+        )
 
         # Get UE info
         ue_info = cell.get_ue_info()
@@ -125,10 +126,12 @@ class TestAWSConnectivity:
         dau = end_to_end_data_path["dau"]
 
         # Wait for registration and data connection
-        if not wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC):
-            pytest.skip("Modem did not register on cell")
-        if not activate_data_connection_with_modem(modem, cell):
-            pytest.skip("Failed to activate data connection")
+        assert wait_for_registration(
+            modem, timeout_sec=REGISTRATION_TIMEOUT_SEC
+        ), "Modem did not register on active cell"
+        assert activate_data_connection_with_modem(modem, cell), (
+            "Failed to activate data connection"
+        )
 
         # DAU has no passive throughput counters
         with pytest.raises(NotImplementedError):

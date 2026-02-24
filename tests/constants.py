@@ -106,18 +106,18 @@ POWER_SAMPLE_RATE_HZ = 10_000_000
 # Default shunt resistance in Ohms for current measurement (I = V / R)
 POWER_DEFAULT_SHUNT_OHMS = 0.01
 
-# Measurement mode: "differential" (2-ch) or "inamp" (1-ch with amplifier)
+# Measurement mode: "differential" (2-channel) or "inamp" (1-channel with amp)
 POWER_DEFAULT_MODE = "differential"
 
-# Instrumentation amplifier gain (V/V) for inamp mode
-POWER_DEFAULT_INAMP_GAIN = 20.0
+# Saleae analog channel indices for differential measurement
+POWER_DIFFERENTIAL_CHANNEL_A = 0  # Node A (host side of shunt)
+POWER_DIFFERENTIAL_CHANNEL_B = 1  # Node B (DUT side of shunt)
 
-# Default Saleae analog channel index for VBUS measurement
+# Default Saleae analog channel index for in-amp / single-channel measurement
 POWER_ANALOG_CHANNEL = 0
 
-# Differential mode channel indices (high-side / low-side of shunt)
-POWER_DIFFERENTIAL_CHANNEL_A = 0
-POWER_DIFFERENTIAL_CHANNEL_B = 1
+# Instrumentation amplifier gain (V/V) — used only in "inamp" mode
+POWER_DEFAULT_INAMP_GAIN = 20.0
 
 # Continuous data transfer duration (seconds)
 POWER_CONTINUOUS_TX_DURATION_SEC = 10.0
@@ -125,11 +125,74 @@ POWER_CONTINUOUS_TX_DURATION_SEC = 10.0
 # Extra time beyond capture duration before killing subprocesses (seconds)
 POWER_SUBPROCESS_GRACE_SEC = 2.0
 
-# Modem rail typical current budget (CELL_MOD_3V3_VCC) in milliamps
-POWER_MODEM_TYPICAL_BUDGET_MA = 350.0
-
-# PSU continuous current limit (USB spec) in milliamps
-POWER_SUPPLY_CONTINUOUS_MA = 500.0
-
 # @pytest.mark.timeout() for power consumption tests
 TEST_TIMEOUT_POWER = 300
+
+# @pytest.mark.timeout() for QoS threshold tests (must sustain 6+ minutes)
+TEST_TIMEOUT_QOS_THRESHOLD = 600
+
+# @pytest.mark.timeout() for Baseball Rule tests (6-minute rule + setup)
+TEST_TIMEOUT_BASEBALL_RULE = 600
+
+# ---------------------------------------------------------------------------
+# QoS fallback thresholds (Operational Performance Spec Section 5.4)
+#
+# These are the default NVM-configurable QoS thresholds.  When a parameter
+# stays below its threshold for QOS_SUSTAINED_DURATION_SEC the firmware
+# SHALL initiate service fallback.
+# ---------------------------------------------------------------------------
+
+QOS_LTE_RSRP_THRESHOLD_DBM = -120
+QOS_LTE_SINR_THRESHOLD_DB = 0
+QOS_HSPA_RSCP_THRESHOLD_DBM = -105
+QOS_HSPA_ECIO_THRESHOLD_DB = -15
+QOS_GPRS_RSSI_THRESHOLD_DBM = -100
+
+# Duration a QoS parameter must remain below threshold to trigger fallback
+QOS_SUSTAINED_DURATION_SEC = 360  # 6 minutes
+
+# ---------------------------------------------------------------------------
+# Baseball Rule (Operational Performance Spec Section 6.3)
+#
+# Three consecutive connection failures ("strikes") within the window
+# trigger automatic service fallback.
+# ---------------------------------------------------------------------------
+
+BASEBALL_RULE_RETRY_WAIT_SEC = 120  # 2 minutes between retries
+BASEBALL_RULE_MAX_STRIKES = 3
+BASEBALL_RULE_WINDOW_SEC = 360  # 6 minutes total
+
+# ---------------------------------------------------------------------------
+# Service and mode fallback hierarchy
+# (Operational Performance Spec Sections 6, 7; Provisioning Plan Section 5.13)
+# ---------------------------------------------------------------------------
+
+# Mode fallback priority — Cel_Mode 1-7
+MODE_FALLBACK_PRIORITY = [
+    "E-UTRAN",  # Mode 1: LTE
+    "HSPA",     # Mode 2: 3G High Speed
+    "HSUPA",    # Mode 3: 3G High Speed Uplink
+    "HSDPA",    # Mode 4: 3G High Speed Downlink
+    "UTRAN",    # Mode 5: 3G UMTS
+    "EDGE",     # Mode 6: 2.5G Enhanced Data
+    "WCDMA",    # Mode 7: 3G Legacy
+]
+
+# Service fallback tiers — Service_Index 1-4
+SERVICE_FALLBACK_TIERS = ["primary", "tier1", "tier2", "global_default"]
+
+# Fallback state machine timing (Operational Performance Spec Section 9.2)
+PROFILE_SWITCH_MAX_SEC = 1.0     # eSIM profile switch < 1 second
+MODE_SWITCH_MAX_SEC = 5.0        # RAT mode switch via AT+COPS < 5 seconds
+SERVICE_RECOVERY_MAX_SEC = 10.0  # Service fallback recovery < 10 seconds
+MODE_RECOVERY_MAX_SEC = 30.0     # Mode fallback recovery < 30 seconds
+
+# ---------------------------------------------------------------------------
+# Power consumption budgets (Component Selection Analysis)
+# ---------------------------------------------------------------------------
+
+# CELL_MOD_3V3_VCC rail budget for modem
+POWER_MODEM_TYPICAL_BUDGET_MA = 350.0
+
+# Power supply continuous output limit (shared across all rails)
+POWER_SUPPLY_CONTINUOUS_MA = 760.0

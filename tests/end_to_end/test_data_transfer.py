@@ -55,8 +55,10 @@ class TestDataTransfer:
         cell = end_to_end_data_path["cell"]
 
         # Setup connection
-        if not wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
         if not activate_data_connection_with_modem(modem, cell):
             pytest.skip("Failed to activate data connection")
 
@@ -82,8 +84,10 @@ class TestDataTransfer:
         cell = end_to_end_data_path["cell"]
 
         # Setup connection
-        if not wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
         if not activate_data_connection_with_modem(modem, cell):
             pytest.skip("Failed to activate data connection")
 
@@ -107,8 +111,10 @@ class TestDataTransfer:
         cell = end_to_end_data_path["cell"]
 
         # Setup connection
-        if not wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
         if not activate_data_connection_with_modem(modem, cell):
             pytest.skip("Failed to activate data connection")
 

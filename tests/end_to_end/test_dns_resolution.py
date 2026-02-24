@@ -108,8 +108,10 @@ class TestDNSResolution:
             # The cell is still active on hardware; sync Python-side state
             cell._cell_state = CellState.ON
 
-        if not wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem, timeout_sec=REGISTRATION_TIMEOUT_SEC), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, cell):
             pytest.skip("Failed to activate data connection")

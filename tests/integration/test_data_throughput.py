@@ -15,7 +15,7 @@ import pytest
 
 from tests.constants import (
     REGISTRATION_TIMEOUT_SEC,
-    TEST_TIMEOUT_MEDIUM,
+    TEST_TIMEOUT_EXTENDED,
     TEST_TIMEOUT_STANDARD,
 )
 from tests.helpers import safe_cleanup
@@ -42,8 +42,10 @@ class TestDataThroughput:
         Throughput measurement requires active IP traffic via DAU (iperf3),
         not a passive signaling-level query.
         """
-        if not wait_for_registration(modem):
-            pytest.skip("Modem did not register on cell")
+        assert wait_for_registration(modem), (
+            "Modem did not register on cell — "
+            "cell is active, check modem scan mode and radio state"
+        )
 
         if not activate_data_connection_with_modem(modem, lte_cell):
             pytest.skip("Failed to activate data connection")
@@ -51,7 +53,7 @@ class TestDataThroughput:
         with pytest.raises(NotImplementedError):
             lte_cell.measure_throughput(duration_sec=10)
 
-    @pytest.mark.timeout(TEST_TIMEOUT_MEDIUM)
+    @pytest.mark.timeout(TEST_TIMEOUT_EXTENDED)
     def test_throughput_with_different_bandwidths(
         self, cmw500, modem, wait_for_registration, activate_data_connection_with_modem
     ):

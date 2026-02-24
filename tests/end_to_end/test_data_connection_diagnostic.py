@@ -24,8 +24,7 @@ from tests.constants import (
     CMW_UE_REGISTRATION_TIMEOUT_SEC,
     POLL_INTERVAL_SEC,
     RADIO_OFF_SETTLE_SEC,
-    RADIO_ON_SETTLE_SEC,
-    REGISTRATION_TIMEOUT_SEC,
+    RECOVERY_TIMEOUT_SEC,
     SIGNAL_SETTLE_SEC,
     TEST_TIMEOUT_EXTENDED,
 )
@@ -103,17 +102,22 @@ class TestDataConnectionDiagnostic:
         cfun = modem.send_command("AT+CFUN?")
         _log_kv("CFUN (initial)", cfun.strip())
 
-        # Cycle radio to trigger fresh search
+        # Cycle radio to trigger fresh search.  Allow extra settle time
+        # after CFUN=1 — if previous tests left the modem in a stressed
+        # state (e.g. post-RAT-switch or detach), the baseband needs
+        # additional time before it begins scanning for the LTE cell.
         logger.info("  Cycling radio (CFUN=0 -> CFUN=1) ...")
         modem.send_command("AT+CFUN=0", timeout=AT_CMD_TIMEOUT)
         time.sleep(RADIO_OFF_SETTLE_SEC)
         modem.send_command("AT+CFUN=1", timeout=AT_CMD_TIMEOUT)
-        time.sleep(RADIO_ON_SETTLE_SEC)
+        time.sleep(SIGNAL_SETTLE_SEC)
 
-        # Poll for registration
+        # Poll for registration — use the recovery timeout (90s) rather than
+        # the standard timeout (60s) because this diagnostic test may run
+        # after tests that left the modem in a stressed state
         registered = False
         start = time.time()
-        while (time.time() - start) < REGISTRATION_TIMEOUT_SEC:
+        while (time.time() - start) < RECOVERY_TIMEOUT_SEC:
             resp = modem.send_command("AT+CEREG?")
             match = re.search(r"\+CEREG:\s*\d+,(\d+)", resp)
             if match:
