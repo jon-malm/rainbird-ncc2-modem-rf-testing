@@ -18,8 +18,8 @@ all visible.
 - Current-sense shunt resistor (default: 0.01 Ω, ≥ 1 W)
 - R&S CMW500 Base Station Simulator (existing test-bench equipment)
 - Quectel EG21-G modem under test
-- *(Optional)* Instrumentation amplifier board — gain 20 V/V, CMRR > 80 dB
-  (e.g. AD8421, INA128, or INA219 breakout with analog output)
+- *(Optional)* Instrumentation amplifier board — gain 50 V/V, CMRR > 80 dB
+  (e.g. INA213 current-sense amplifier)
 
 ### Wiring — High-Side Shunt
 
@@ -60,7 +60,7 @@ Test Host                USB Breakout Board                     Modem (DUT)
               │    In-Amp REF ─── USB GND                  │
               │    In-Amp OUT ─── Saleae CH0               │
               │    Saleae GND ─── USB GND                  │
-              │    Gain = 20 V/V                           │
+              │    Gain = 50 V/V (INA213)                  │
               └────────────────────────────────────────────┘
 ```
 
@@ -121,21 +121,22 @@ amplifier between the shunt and the Saleae input:
 | In-Amp V_out     | Saleae CH0        |
 | Saleae GND       | USB GND           |
 
-Suggested ICs: INA219 (with analog output breakout), AD8421, INA128, or any
-rail-to-rail in-amp with CMRR > 80 dB at the common-mode voltage (~5 V).
+Recommended IC: INA213 current-sense amplifier (fixed 50 V/V gain, CMRR > 80 dB,
+common-mode range up to 26 V — well above the ~5 V USB VBUS rail).
 
-With a gain of **20 V/V**:
+With the INA213's fixed gain of **50 V/V**:
 
 ```
-V_out = 20 × (V_A − V_B) = 20 × I × R_shunt
-I     = V_out / (20 × R_shunt)
+V_out = 50 × (V_A − V_B) = 50 × I × R_shunt
+I     = V_out / (50 × R_shunt)
 ```
 
-| I_load   | V_shunt (0.01 Ω) | V_out (20× gain) |
+| I_load   | V_shunt (0.01 Ω) | V_out (50× gain) |
 |----------|-------------------|-------------------|
-| 100 mA   | 1.0 mV            | 20 mV             |
-| 500 mA   | 5.0 mV            | 100 mV            |
-| 1.0 A    | 10.0 mV           | 200 mV            |
+| 100 mA   | 1.0 mV            | 50 mV             |
+| 500 mA   | 5.0 mV            | 250 mV            |
+| 1.0 A    | 10.0 mV           | 500 mV            |
+| 2.5 A    | 25.0 mV           | 1.25 V            |
 
 The in-amp provides hardware common-mode rejection (typically > 80 dB) and
 amplifies the shunt voltage into a range the ADC can resolve cleanly.  Only
@@ -166,7 +167,7 @@ external probe attenuation is needed when wiring directly.
 | Sample rate      | 10 MSa/s       |
 | Shunt resistance | 0.01 Ω         |
 | Probe attenuation| 1x (direct)    |
-| In-amp gain      | 20 V/V (if used)|
+| In-amp gain      | 50 V/V (INA213) |
 
 ## Software Prerequisites
 
@@ -223,7 +224,7 @@ at collection time — no SKIPPED noise in normal test output.
 | `--shunt-resistance` | `0.01`           | Shunt resistance in Ohms                         |
 | `--capture-duration` | `5.0`            | Analog capture duration per condition (seconds)  |
 | `--power-mode`       | `differential`   | `differential` (2-ch) or `inamp` (1-ch with amp) |
-| `--inamp-gain`       | `20.0`           | Instrumentation amplifier gain in V/V            |
+| `--inamp-gain`       | `50.0`           | Instrumentation amplifier gain in V/V            |
 | `--skip-power`       | off              | Skip all power consumption tests                 |
 
 ### Examples
@@ -235,7 +236,7 @@ uv run pytest tests/integration/test_power_consumption.py -v \
 
 # Use instrumentation amplifier mode with custom gain
 uv run pytest tests/integration/test_power_consumption.py -v \
-    --power-mode inamp --inamp-gain 20
+    --power-mode inamp --inamp-gain 50
 
 # Skip power tests when running the full suite
 uv run pytest tests/ -v --skip-power
@@ -301,7 +302,7 @@ analysis.
 | `POWER_CAPTURE_DURATION_SEC`      | 5.0 s            | `--capture-duration`  |
 | `POWER_DEFAULT_SHUNT_OHMS`        | 0.01 Ω           | `--shunt-resistance`  |
 | `POWER_DEFAULT_MODE`              | `differential`   | `--power-mode`        |
-| `POWER_DEFAULT_INAMP_GAIN`        | 20.0 V/V         | `--inamp-gain`        |
+| `POWER_DEFAULT_INAMP_GAIN`        | 50.0 V/V         | `--inamp-gain`        |
 | `POWER_SAMPLE_RATE_HZ`            | 10,000,000       | (code only)           |
 | `POWER_ANALOG_CHANNEL`            | 0                | (code only)           |
 | `POWER_DIFFERENTIAL_CHANNEL_A`    | 0                | (code only)           |

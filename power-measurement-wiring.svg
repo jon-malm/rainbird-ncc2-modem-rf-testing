@@ -110,8 +110,8 @@
   <!-- In-Amp box -->
   <rect x="505" y="325" width="160" height="90" rx="6" fill="#fff" stroke="#c62828" stroke-width="1.5"/>
   <text x="585" y="348" text-anchor="middle" font-weight="bold" font-size="12" fill="#c62828">In-Amp</text>
-  <text x="585" y="366" text-anchor="middle" font-size="11" fill="#333">Gain = 20 V/V</text>
-  <text x="585" y="382" text-anchor="middle" font-size="10" fill="#666">(e.g. INA219, AD8421)</text>
+  <text x="585" y="366" text-anchor="middle" font-size="11" fill="#333">Gain = 50 V/V</text>
+  <text x="585" y="382" text-anchor="middle" font-size="10" fill="#666">(INA213)</text>
   <text x="585" y="398" text-anchor="middle" font-size="10" fill="#666">V_ref = GND</text>
 
   <!-- In-Amp inputs -->
@@ -130,11 +130,11 @@
   <text x="735" y="393" font-size="11" fill="#333">GND → USB GND</text>
 
   <!-- Formula -->
-  <text x="505" y="440" font-size="11" fill="#333" font-weight="bold">V_out = 20 × (V_A − V_B)</text>
-  <text x="505" y="458" font-size="11" fill="#333" font-weight="bold">I = V_out / (20 × R_shunt)</text>
+  <text x="505" y="440" font-size="11" fill="#333" font-weight="bold">V_out = 50 × (V_A − V_B)</text>
+  <text x="505" y="458" font-size="11" fill="#333" font-weight="bold">I = V_out / (50 × R_shunt)</text>
 
   <!-- Example -->
-  <text x="505" y="480" font-size="10" fill="#555">• 500 mA → 5 mV shunt → 100 mV output</text>
+  <text x="505" y="480" font-size="10" fill="#555">• 500 mA → 5 mV shunt → 250 mV output</text>
   <text x="505" y="495" font-size="10" fill="#555">• Single Saleae channel, hardware CMRR &gt;80 dB</text>
 
   <!-- ================================================================ -->

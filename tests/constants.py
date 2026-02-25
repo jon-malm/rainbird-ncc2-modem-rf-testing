@@ -117,7 +117,8 @@ POWER_DIFFERENTIAL_CHANNEL_B = 1  # Node B (DUT side of shunt)
 POWER_ANALOG_CHANNEL = 0
 
 # Instrumentation amplifier gain (V/V) — used only in "inamp" mode
-POWER_DEFAULT_INAMP_GAIN = 20.0
+# INA213 current-sense amplifier: fixed 50 V/V gain
+POWER_DEFAULT_INAMP_GAIN = 50.0
 
 # Continuous data transfer duration (seconds)
 POWER_CONTINUOUS_TX_DURATION_SEC = 10.0

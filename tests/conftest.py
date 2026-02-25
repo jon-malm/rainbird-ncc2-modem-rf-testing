@@ -103,7 +103,7 @@ def pytest_addoption(parser):
         "--inamp-gain",
         action="store",
         default=None,
-        help="Instrumentation amplifier gain in V/V (default: 20.0, inamp mode only)",
+        help="Instrumentation amplifier gain in V/V (default: 50.0, inamp mode only)",
     )
     parser.addoption(
         "--skip-power",
