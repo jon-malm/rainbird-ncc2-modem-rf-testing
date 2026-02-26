@@ -111,6 +111,25 @@ def pytest_addoption(parser):
         default=False,
         help="Skip power consumption tests",
     )
+    parser.addoption(
+        "--modem-backend",
+        action="store",
+        default="eg21g",
+        choices=["eg21g", "h7"],
+        help="Modem manager backend: eg21g (direct serial) or h7 (eRPC via STM32H7)",
+    )
+    parser.addoption(
+        "--h7-host",
+        action="store",
+        default="192.168.1.100",
+        help="STM32H7 board IP address (h7 backend only)",
+    )
+    parser.addoption(
+        "--h7-port",
+        action="store",
+        default="5674",
+        help="STM32H7 eRPC TCP port (h7 backend only)",
+    )
 
 
 def pytest_collection_modifyitems(config, items):

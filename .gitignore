@@ -29,3 +29,6 @@ htmlcov/
 
 # External reference documents (PDFs, installers)
 external_references/
+
+# Downloaded tool binaries
+tools/erpcgen

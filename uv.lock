@@ -109,6 +109,15 @@ dev = [
 ]
 
 [[package]]
+name = "erpc"
+version = "1.14.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/ae/654e9baa224c73d0cc371bdc7ee072afbfeddcc8ac2c038d8238ec302948/erpc-1.14.0.tar.gz", hash = "sha256:604eb2418a5bc7317fd517882135a8e21f4d2fe59bb43756031f05ba2dece349", size = 10096, upload-time = "2025-06-26T07:57:16.965Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/5f/6fd0191fc57eceb4d42e05ad0db8e541b9a20814442f9cf24d9c8e118b24/erpc-1.14.0-py2.py3-none-any.whl", hash = "sha256:52c5c6c1c5559acaf32f85f37d817c20d8ee97b647f96d65e72df7f58e7519f9", size = 12556, upload-time = "2025-06-26T07:57:16.139Z" },
+]
+
+[[package]]
 name = "fonttools"
 version = "4.61.1"
 source = { registry = "https://pypi.org/simple" }
@@ -630,6 +639,9 @@ dependencies = [
 dev = [
     { name = "ruff" },
 ]
+h7 = [
+    { name = "erpc" },
+]
 power = [
     { name = "numpy" },
     { name = "saleae-mso-api" },
@@ -645,6 +657,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "ruff", specifier = ">=0.14.14" }]
+h7 = [{ name = "erpc", specifier = ">=1.14.0" }]
 power = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "saleae-mso-api", specifier = ">=0.5.0", index = "https://downloads.saleae.com/pypi" },

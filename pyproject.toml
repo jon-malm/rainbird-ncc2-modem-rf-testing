@@ -19,6 +19,9 @@ power = [
     "saleae-mso-api>=0.5.0",
     "numpy>=1.26",
 ]
+h7 = [
+    "erpc>=1.14.0",
+]
 
 [tool.uv.sources]
 equipment-cmw500 = { path = "equipment-cmw500", editable = true }
@@ -47,6 +50,7 @@ timeout = 30
 [tool.ruff]
 line-length = 88
 target-version = "py313"
+extend-exclude = ["modem_interface/_erpc_gen"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

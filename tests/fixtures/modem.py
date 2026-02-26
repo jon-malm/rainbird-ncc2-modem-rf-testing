@@ -9,17 +9,30 @@ from tests.constants import AT_CMD_TIMEOUT
 
 
 @pytest.fixture(scope="session")
-def modem_manager(modem_port):
+def modem_manager(request, modem_port):
     """
     Session-scoped modem manager. Skips if modem not available.
 
     Attempts to connect to the modem once at the start of the session.
     If connection fails, all tests using this fixture will be skipped.
+
+    Backend is selected via ``--modem-backend``:
+    - ``eg21g`` (default): direct serial via EG21GModemManager
+    - ``h7``: eRPC via STM32H7 board using H7ModemManager
     """
-    modem = EG21GModemManager()
+    backend = request.config.getoption("--modem-backend")
+
+    if backend == "h7":
+        from modem_interface import H7ModemManager
+
+        h7_host = request.config.getoption("--h7-host")
+        h7_port = int(request.config.getoption("--h7-port"))
+        modem = H7ModemManager(host=h7_host, erpc_port=h7_port)
+    else:
+        modem = EG21GModemManager()
 
     try:
-        if modem_port:
+        if modem_port and backend != "h7":
             connected = modem.connect(modem_port)
         else:
             connected = modem.connect()
