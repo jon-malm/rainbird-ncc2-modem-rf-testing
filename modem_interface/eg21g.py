@@ -87,6 +87,28 @@ class EG21GModemManager(ModemManager):
     def is_registered(self) -> bool:
         return self._inner.is_registered()
 
+    # --- eSIM profile management ---
+
+    def list_esim_profiles(self) -> list[dict] | None:
+        profiles = self._inner.list_esim_profiles()
+        if profiles is None:
+            return None
+        return [
+            {
+                "iccid": p.iccid,
+                "status": p.status,
+                "nickname": p.nickname,
+                "provider": p.provider,
+            }
+            for p in profiles
+        ]
+
+    def switch_esim_profile(self, iccid: str) -> bool:
+        return self._inner.enable_esim_profile(iccid)
+
+    def get_active_iccid(self) -> str | None:
+        return self._inner.get_active_esim_iccid()
+
     # --- Serial interface ---
 
     @property

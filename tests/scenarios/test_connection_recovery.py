@@ -567,6 +567,70 @@ class TestConnectionRecovery:
         assert data_recovered, "Failed to establish data connection on Band 3"
         logger.info("Successfully switched to Band 3 and established data connection")
 
+    @pytest.mark.timeout(TEST_TIMEOUT_EXTENDED)
+    def test_carrier_switch_via_esim(
+        self,
+        lte_cell,
+        modem,
+        wait_for_registration,
+        activate_data_connection_with_modem,
+    ):
+        """Test data recovery after carrier-level switch via eSIM profile.
+
+        Distinct from band switching: this exercises the eSIM profile path
+        (AT+QESIM) for carrier-level switching.  After switching profiles
+        the modem should re-register and restore data connectivity.
+        """
+        profiles = modem.list_esim_profiles()
+        if profiles is None:
+            pytest.skip("eSIM not supported on this modem")
+        if len(profiles) < 2:
+            pytest.skip(
+                f"Need >=2 eSIM profiles to test switching (found {len(profiles)})"
+            )
+
+        assert wait_for_registration(modem), "Modem did not register on LTE cell"
+
+        if not activate_data_connection_with_modem(modem, lte_cell):
+            pytest.fail("Failed to establish initial data connection")
+
+        logger.info("Data connection established on original profile")
+
+        original_iccid = modem.get_active_iccid()
+        alternate = next(
+            (p for p in profiles if p["iccid"] != original_iccid),
+            None,
+        )
+        if alternate is None:
+            pytest.skip("No alternate profile found")
+
+        # Switch to alternate carrier profile
+        switched = modem.switch_esim_profile(alternate["iccid"])
+        assert switched, f"Failed to switch to profile {alternate['iccid']}"
+        time.sleep(SIGNAL_SETTLE_SEC)
+
+        # Wait for re-registration on new profile
+        registered = wait_for_registration(modem, timeout_sec=RECOVERY_TIMEOUT_SEC)
+
+        if not registered:
+            # Restore and fail
+            modem.switch_esim_profile(original_iccid)
+            time.sleep(SIGNAL_SETTLE_SEC)
+            pytest.fail("Modem did not re-register after eSIM carrier switch")
+
+        # Verify data connection on new profile
+        data_ok = activate_data_connection_with_modem(modem, lte_cell)
+        logger.info(
+            "After eSIM switch: registered=%s data=%s", registered, data_ok
+        )
+
+        # Restore original profile
+        modem.switch_esim_profile(original_iccid)
+        time.sleep(SIGNAL_SETTLE_SEC)
+        wait_for_registration(modem, timeout_sec=RECOVERY_TIMEOUT_SEC)
+
+        assert data_ok, "Data connection not available after eSIM carrier switch"
+
     @pytest.mark.timeout(TEST_TIMEOUT_MEDIUM)
     def test_cell_reselection_maintains_data(
         self,

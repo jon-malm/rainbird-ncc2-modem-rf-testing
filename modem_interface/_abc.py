@@ -107,6 +107,39 @@ class ModemManager(ABC):
         """Check if modem is registered on a network."""
         ...
 
+    # --- eSIM profile management ---
+
+    @abstractmethod
+    def list_esim_profiles(self) -> list[dict] | None:
+        """List installed eSIM profiles.
+
+        Returns:
+            List of dicts with keys (iccid, status, nickname, provider),
+            or None if eSIM is not supported.
+        """
+        ...
+
+    @abstractmethod
+    def switch_esim_profile(self, iccid: str) -> bool:
+        """Activate an eSIM profile by ICCID.
+
+        Args:
+            iccid: ICCID of the profile to enable.
+
+        Returns:
+            True if the switch succeeded.
+        """
+        ...
+
+    @abstractmethod
+    def get_active_iccid(self) -> str | None:
+        """Get the ICCID of the currently active eSIM profile.
+
+        Returns:
+            ICCID string, or None on error.
+        """
+        ...
+
     # --- Serial interface ---
 
     @property

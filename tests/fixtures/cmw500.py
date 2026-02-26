@@ -143,3 +143,68 @@ def lte_cell(cmw500) -> Generator[LTESignaling, None, None]:
     yield lte
 
     safe_cleanup(lte.deactivate_cell)
+
+
+@pytest.fixture(scope="function")
+def carrier_cells(cmw500) -> Generator[dict, None, None]:
+    """Two intra-frequency LTE cells for carrier-level fallback testing.
+
+    Simulates multiple cells at the same RAT so the modem can reselect
+    between them without requiring an eSIM profile switch.  SIB3/SIB4
+    neighbor cell info is configured so the modem knows about both cells.
+
+    Provides:
+        dict with keys "primary" and "fallback", each an LTESignaling handle.
+        - primary: PCI 0, -60 dBm (strong)
+        - fallback: PCI 1, -60 dBm (equal)
+        Both on Band 7, EARFCN 3100, same PLMN (001/01).
+    """
+    _force_cell_off(cmw500, cell_id=1)
+    _force_cell_off(cmw500, cell_id=2)
+    cmw500.clear_errors()
+
+    band = LTEBand.BAND_7
+    earfcn = 3100
+    pci1, pci2 = 0, 1
+
+    lte1 = cmw500.get_lte_signaling(cell_id=1)
+    lte2 = cmw500.get_lte_signaling(cell_id=2)
+
+    config_primary = LTECellConfig(
+        band=band,
+        bandwidth=LTEBandwidth.BW_10_MHZ,
+        dl_earfcn=earfcn,
+        physical_cell_id=pci1,
+        dl_power_dbm=-60.0,
+    )
+    config_fallback = LTECellConfig(
+        band=band,
+        bandwidth=LTEBandwidth.BW_10_MHZ,
+        dl_earfcn=earfcn,
+        physical_cell_id=pci2,
+        dl_power_dbm=-60.0,
+    )
+
+    bearer = LTEBearerConfig(apn="test", pdn_type="IPV4", qci=9)
+
+    try:
+        lte1.configure_cell(config_primary)
+        lte1.configure_cell_reselection(s_intra_search_p=62)
+        lte1.configure_neighbor_cell(1, band, earfcn, pci2)
+        lte1.activate_cell()
+        lte1.configure_default_bearer(bearer)
+
+        lte2.configure_cell(config_fallback)
+        lte2.configure_cell_reselection(s_intra_search_p=62)
+        lte2.configure_neighbor_cell(1, band, earfcn, pci1)
+        lte2.activate_cell()
+        lte2.configure_default_bearer(bearer)
+    except Exception as e:
+        safe_cleanup(lte1.deactivate_cell, lte2.deactivate_cell)
+        pytest.skip(f"Failed to configure dual-cell LTE: {e}")
+
+    time.sleep(CELL_STABILIZE_SEC)
+
+    yield {"primary": lte1, "fallback": lte2}
+
+    safe_cleanup(lte1.deactivate_cell, lte2.deactivate_cell)

@@ -91,6 +91,19 @@ UE_REPORT_POLL_TIMEOUT_SEC = 20.0
 UE_REPORT_POLL_INTERVAL_SEC = 0.5
 
 # ---------------------------------------------------------------------------
+# Carrier switchover (eSIM profile switching)
+# ---------------------------------------------------------------------------
+
+# Settle time after eSIM profile switch before checking registration
+ESIM_SWITCH_SETTLE_SEC = 2.0
+
+# Maximum wait for full carrier switchover (profile switch + re-registration)
+CARRIER_SWITCHOVER_TIMEOUT_SEC = 30.0
+
+# @pytest.mark.timeout() for carrier switchover tests
+TEST_TIMEOUT_CARRIER_SWITCHOVER = 300
+
+# ---------------------------------------------------------------------------
 # Power consumption measurement (requires optional saleae-mso-api)
 # ---------------------------------------------------------------------------
 
