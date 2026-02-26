@@ -27,12 +27,14 @@ import argparse
 import re
 import sys
 import time
+from pathlib import Path
 
-# Allow importing modem_manager from the sibling submodule
-_root = __import__("pathlib").Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_root / "modem-manager-eg21"))
+# Allow importing modem_interface from the project root
+_root = Path(__file__).resolve().parents[1]
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 
-from modem_manager import ModemManager  # noqa: E402
+from modem_interface import EG21GModemManager  # noqa: E402
 
 # ISD-R AID defined by GSMA SGP.22 for eUICC access
 ISD_R_AID = "A0000005591010FFFFFFFF8900000100"
@@ -50,9 +52,9 @@ PROFILE_OP_TIMEOUT = 30
 OTA_TIMEOUT = 120
 
 
-def connect_modem(port: str | None = None) -> ModemManager:
+def connect_modem(port: str | None = None) -> EG21GModemManager:
     """Connect to the modem, auto-detecting the port if not specified."""
-    modem = ModemManager()
+    modem = EG21GModemManager()
     if port:
         if not modem.connect(port):
             print(f"ERROR: Failed to connect on {port}")
@@ -69,7 +71,7 @@ def connect_modem(port: str | None = None) -> ModemManager:
     return modem
 
 
-def get_eid_via_apdu(modem: ModemManager) -> str | None:
+def get_eid_via_apdu(modem: EG21GModemManager) -> str | None:
     """Retrieve eUICC ID using 3GPP-standard APDU sequence.
 
     Sequence (per FW-NCC2 Provisioning Plan, Appendix A):
@@ -124,7 +126,7 @@ def get_eid_via_apdu(modem: ModemManager) -> str | None:
         modem.send_command(f"AT+CCHC={session_id}", timeout=CMD_TIMEOUT)
 
 
-def get_eid_via_qesim(modem: ModemManager) -> str | None:
+def get_eid_via_qesim(modem: EG21GModemManager) -> str | None:
     """Retrieve eUICC ID using Quectel vendor-specific AT+QESIM="eid".
 
     Returns:
@@ -141,7 +143,7 @@ def get_eid_via_qesim(modem: ModemManager) -> str | None:
     return match.group(1) if match else None
 
 
-def get_iccid(modem: ModemManager) -> str | None:
+def get_iccid(modem: EG21GModemManager) -> str | None:
     """Read the active profile's ICCID via AT+CRSM (3GPP-standard).
 
     Reads EF_ICCID (file ID 0x2FE2 = 12258 decimal).
@@ -159,14 +161,14 @@ def get_iccid(modem: ModemManager) -> str | None:
     return iccid.rstrip("Ff")
 
 
-def get_imsi(modem: ModemManager) -> str | None:
+def get_imsi(modem: EG21GModemManager) -> str | None:
     """Read the active profile's IMSI via AT+CIMI."""
     resp = modem.send_command("AT+CIMI", timeout=CMD_TIMEOUT)
     match = re.search(r"(\d{10,15})", resp)
     return match.group(1) if match else None
 
 
-def cmd_info(modem: ModemManager) -> None:
+def cmd_info(modem: EG21GModemManager) -> None:
     """Display modem and eSIM identity information."""
     print("\n--- Modem Info ---")
     info = modem.get_modem_info()
@@ -203,7 +205,7 @@ def cmd_info(modem: ModemManager) -> None:
         print("  The eSIM may not support eUICC, or firmware needs updating.")
 
 
-def cmd_list(modem: ModemManager) -> None:
+def cmd_list(modem: EG21GModemManager) -> None:
     """List installed eSIM profiles."""
     print("\n--- Installed Profiles ---")
     resp = modem.send_command('AT+QESIM="list"', timeout=CMD_TIMEOUT)
@@ -260,7 +262,7 @@ def cmd_list(modem: ModemManager) -> None:
             print(f"      Provider: {p['provider']}")
 
 
-def cmd_download(modem: ModemManager, activation_code: str) -> None:
+def cmd_download(modem: EG21GModemManager, activation_code: str) -> None:
     """Download and install an eSIM profile from SM-DP+.
 
     The activation code is typically obtained from the carrier/MVNO and
@@ -338,7 +340,7 @@ def cmd_download(modem: ModemManager, activation_code: str) -> None:
     print("  Done. Run 'list' to see installed profiles.")
 
 
-def cmd_enable(modem: ModemManager, iccid: str) -> None:
+def cmd_enable(modem: EG21GModemManager, iccid: str) -> None:
     """Enable (activate) an installed eSIM profile."""
     print("\n--- Enable Profile ---")
     print(f"  ICCID: {iccid}")
@@ -364,7 +366,7 @@ def cmd_enable(modem: ModemManager, iccid: str) -> None:
     print(f"  Active IMSI:  {new_imsi or 'N/A'}")
 
 
-def cmd_disable(modem: ModemManager, iccid: str) -> None:
+def cmd_disable(modem: EG21GModemManager, iccid: str) -> None:
     """Disable an installed eSIM profile."""
     print("\n--- Disable Profile ---")
     print(f"  ICCID: {iccid}")
@@ -378,7 +380,7 @@ def cmd_disable(modem: ModemManager, iccid: str) -> None:
         print(f"  Response: {resp}")
 
 
-def cmd_delete(modem: ModemManager, iccid: str) -> None:
+def cmd_delete(modem: EG21GModemManager, iccid: str) -> None:
     """Delete an installed eSIM profile.
 
     The profile must be disabled before it can be deleted.
@@ -410,7 +412,7 @@ def cmd_delete(modem: ModemManager, iccid: str) -> None:
         print("  Profile deleted.")
 
 
-def cmd_verify(modem: ModemManager) -> None:
+def cmd_verify(modem: EG21GModemManager) -> None:
     """Verify that the eSIM is configured for the test framework.
 
     Checks:

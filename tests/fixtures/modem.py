@@ -1,11 +1,10 @@
-"""Modem manager fixtures (requires rainbird-ncc2-modem-poc)."""
+"""Modem manager fixtures."""
 
 import re
-import sys
-from pathlib import Path
 
 import pytest
 
+from modem_interface import EG21GModemManager
 from tests.constants import AT_CMD_TIMEOUT
 
 
@@ -17,16 +16,7 @@ def modem_manager(modem_port):
     Attempts to connect to the modem once at the start of the session.
     If connection fails, all tests using this fixture will be skipped.
     """
-    modem_poc_path = Path(__file__).parent.parent.parent / "modem-manager-eg21"
-    if str(modem_poc_path) not in sys.path:
-        sys.path.insert(0, str(modem_poc_path))
-
-    try:
-        from modem_manager import ModemManager
-    except ImportError as e:
-        pytest.skip(f"Modem manager module not available: {e}")
-
-    modem = ModemManager()
+    modem = EG21GModemManager()
 
     try:
         if modem_port:
